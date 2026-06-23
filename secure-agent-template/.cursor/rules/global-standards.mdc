@@ -1,0 +1,9 @@
+---
+description: Global code style and security quality standards
+alwaysApply: true
+---
+# Engineering Standards
+- Write clean, declarative, testable functions.
+- Enforce explicit, strict typing; avoid using `any`.
+- Never hardcode credentials, tokens, or environment keys.
+- Prefer small, focused changes over large refactors unless asked.

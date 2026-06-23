@@ -1,0 +1,9 @@
+.env
+.env.*
+*.key
+credentials.json
+.claude/settings.local.json
+node_modules/
+dist/
+build/
+.DS_Store
