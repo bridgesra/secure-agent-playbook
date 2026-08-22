@@ -81,6 +81,10 @@ new-project() {
 
   cd "${dest}" || return 1
   echo "Created ${dest}"
+  echo ""
+  echo "Before your first git pull/push, run (inside the container if using cursor/both/claude-box):"
+  echo "  git config --global credential.helper store"
+  echo "  Credentials are saved after the first successful auth."
 
   case "${mode}" in
     claude)
