@@ -476,7 +476,7 @@ All template files live in [`secure-agent-template/`](secure-agent-template/) in
 - **`.cursorignore`** — excludes secrets, deps, build output from Cursor indexing
 - **`.claude/settings.json`** — enforces read blocks on secrets and `node_modules/`
 - **`notes.md`** — personal setup notes (workspace Color Theme, git credential helper)
-- **`devcontainer.json`** (both mode) — Ubuntu base, Node 20, Claude Code feature, persistent `~/.claude` volume, `postCreateCommand` for volume permissions, `remoteEnv` for API key/token forwarding
+- **`devcontainer.json`** (both mode) — Ubuntu base, Node 20, Claude Code feature, Claude Code extension in the sidebar, persistent `~/.claude` volume, `postCreateCommand` for volume permissions, `remoteEnv` for API key/token forwarding
 - **`devcontainer.cursor-only.json`** — same without Claude Code feature
 
 ---

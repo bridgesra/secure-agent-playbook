@@ -23,7 +23,10 @@
       "extensions": [
         "dbaeumer.vscode-eslint",
         "anthropic.claude-code"
-      ]
+      ],
+      "settings": {
+        "claude-code.preferredLocation": "sidebar"
+      }
     }
   },
   "remoteUser": "vscode"
