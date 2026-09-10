@@ -11,13 +11,23 @@
     "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume"
   ],
   "containerEnv": {
-    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
+    "HEADROOM_BEACON": "off",
+    "DO_NOT_TRACK": "1"
   },
   "remoteEnv": {
     "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
     "CLAUDE_CODE_OAUTH_TOKEN": "${localEnv:CLAUDE_CODE_OAUTH_TOKEN}"
   },
+  "forwardPorts": [8787],
+  "portsAttributes": {
+    "8787": {
+      "label": "Headroom dashboard",
+      "onAutoForward": "silent"
+    }
+  },
   "postCreateCommand": "bash .devcontainer/setup-agent-tools.sh both",
+  "postStartCommand": "bash .devcontainer/start-headroom.sh",
   "customizations": {
     "vscode": {
       "extensions": [

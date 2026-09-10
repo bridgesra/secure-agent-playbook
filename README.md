@@ -126,7 +126,7 @@ Cases 1 and 3 need a way for Claude Code to authenticate. Case 2 (Cursor only) d
 
 After adding env vars to `~/.zshrc`, run `source ~/.zshrc` again.
 
-**Case 3 note:** The template `devcontainer.json` includes `remoteEnv` so API keys and OAuth tokens from your Mac reach the container, and `postCreateCommand` (`.devcontainer/setup-agent-tools.sh`) so the `~/.claude` volume is writable by the `vscode` user (required for in-container OAuth), `jq` is installed for the status line, and RTK hooks are registered for Claude Code and Cursor.
+**Case 3 note:** The template `devcontainer.json` includes `remoteEnv` so API keys and OAuth tokens from your Mac reach the container, and `postCreateCommand` (`.devcontainer/setup-agent-tools.sh`) so the `~/.claude` volume is writable by the `vscode` user (required for in-container OAuth), `jq` is installed for the status line, RTK hooks are registered, and Headroom is installed. `postStartCommand` starts the Headroom proxy on `127.0.0.1:8787`.
 
 Details and reliability notes for each case are in [Case 1](#case-1--claude-code-only) and [Case 3](#case-3--cursor--claude-code).
 
@@ -192,22 +192,24 @@ Running `new-project` copies these files into your repo:
 ```
 my-app/
 ├── .cursorignore              # Cursor: skip indexing these paths
+├── .cursor/mcp.json           # Cursor: Headroom MCP (compress / retrieve / stats)
 ├── .cursor/rules/
 │   └── global-standards.mdc   # Cursor: always-on rules
 ├── .claudeignore              # Claude: skip from automatic context
 ├── .claude/
-│   ├── settings.json          # Claude: hard-block reads + status line
+│   ├── settings.json          # Claude: hard-block reads + status line + Headroom URL
 │   ├── statusline.sh          # Claude: context / rate-limit status bar
 │   └── skills/
 │       └── folder-explore/
 │           └── SKILL.md       # Claude: build/refresh docs/repo-map.md
 ├── CLAUDE.md                  # Claude: project instructions every session
-├── notes.md                   # Personal setup notes (theme, git credentials, RTK)
+├── notes.md                   # Personal setup notes (theme, git credentials, RTK, Headroom)
 ├── .gitignore
 └── .devcontainer/
     ├── devcontainer.json              # default (Cursor + Claude feature)
     ├── devcontainer.cursor-only.json  # used when mode=cursor
-    └── setup-agent-tools.sh           # installs jq, RTK, and agent hooks
+    ├── setup-agent-tools.sh           # installs jq, RTK, Headroom, and agent hooks
+    └── start-headroom.sh              # starts the local Headroom proxy if needed
 ```
 
 **Case 1 note:** `new-project foo claude` still copies `.devcontainer/` files. You won't use them — that's fine. Ignore the folder.
@@ -231,6 +233,26 @@ rtk init --show   # confirm the hook is installed
 
 Cursor hooks are global-only, so RTK is registered at container setup, not as a file in the git repo. Case 1 installs it in the `claude-secure-sandbox` image. Cases 2 and 3 run `.devcontainer/setup-agent-tools.sh` from `postCreateCommand`. Each new project also gets a short RTK note in `notes.md`.
 
+### Headroom (token compression proxy)
+
+New containers install [Headroom](https://github.com/headroomlabs-ai/headroom) and keep a local proxy on `127.0.0.1:8787`. Claude Code is routed through it automatically (`ANTHROPIC_BASE_URL`). You still type `claude` as usual — do not use `headroom wrap` for daily use.
+
+**What it is.** Headroom compresses tool outputs, logs, and other bulky context on the way to the model. RTK shrinks shell output before the agent reads it; Headroom shrinks whatever still goes to the LLM. Keep both. Serena is not installed.
+
+**Cursor Agent** (Composer / this chat, Cursor-hosted models) is not wrapped. Override OpenAI Base URL would send subscription models at Headroom and break them. Cursor gets Headroom as MCP tools only (`.cursor/mcp.json`).
+
+**Telemetry is off** (`HEADROOM_BEACON=off`, `DO_NOT_TRACK=1`).
+
+**See savings** (inside the container, after Claude has made a request):
+
+```bash
+curl -sS http://127.0.0.1:8787/health
+headroom doctor
+headroom dashboard --no-open   # http://127.0.0.1:8787/dashboard
+```
+
+If the proxy is down, Claude fail-closes (it will not silently talk to Anthropic). Restart it with `bash .devcontainer/start-headroom.sh`. Case 1 starts the proxy in the `claude-box` entrypoint. Cases 2 and 3 start it from `postStartCommand`.
+
 ### Ignore vs rules vs hard blocks
 
 | File                    | Tool        | Effect                                             |
@@ -238,7 +260,8 @@ Cursor hooks are global-only, so RTK is registered at container setup, not as a 
 | `.cursorignore`         | Cursor      | Excludes paths from indexing/context               |
 | `.cursor/rules/*.mdc`   | Cursor      | Persistent instructions (`alwaysApply: true`)      |
 | `.claudeignore`         | Claude Code | Advisory — Claude won't auto-load these paths      |
-| `.claude/settings.json` | Claude Code | **Enforced** — `permissions.deny` blocks Read tool; wires the status line |
+| `.cursor/mcp.json`      | Cursor      | Headroom MCP server (`headroom_compress` / retrieve / stats) |
+| `.claude/settings.json` | Claude Code | **Enforced** — `permissions.deny` blocks Read tool; wires the status line; sets `ANTHROPIC_BASE_URL` for Headroom |
 | `.claude/statusline.sh` | Claude Code | Status bar: context %, model, 5h/7d usage |
 | `.claude/skills/`       | Claude Code | Project skills Claude can invoke (folder-explore ships by default) |
 | `CLAUDE.md`             | Claude Code | Loaded at the start of every session               |
@@ -483,7 +506,7 @@ Then in Cursor: **Dev Containers: Rebuild Container**.
 | `docker: command not found`                        | Install OrbStack: `brew install orbstack`, then launch it                                                                                                        |
 | Docker build permissions error on `~/.docker/buildx` | `sudo chown -R "$(whoami):staff" ~/.docker/buildx`, then re-run setup script                                                                                  |
 | Reopen in Container hangs                          | Update `anysphere.remote-containers`; try Rebuild Without Cache                                                                                                  |
-| First container build is very slow                 | Normal — image pull + build can take 5–15 min the first time                                                                                                     |
+| First container build is very slow                 | Normal — image pull + Headroom/Python install can take 5–15 min the first time                                                                                   |
 | `cursor: command not found`                        | Install shell command from Cursor Command Palette                                                                                                                |
 | Claude asks to log in every time                   | Set `ANTHROPIC_API_KEY`, or complete OAuth once so it persists in the volume                                                                                     |
 | Login successful, then **Not logged in** (Case 3)  | Check `ls -la /home/vscode/.claude` — must be `vscode:vscode`, not `root:root`. Re-copy template, delete `claude-code-config-*` volume, rebuild                  |
@@ -494,6 +517,9 @@ Then in Cursor: **Dev Containers: Rebuild Container**.
 | Extensions not installing                          | Use `customizations.vscode`, not `customizations.cursor`                                                                                                         |
 | Status line is blank                               | Script needs `jq`. Case 1: re-run `./secure-agent-playbook.sh` to rebuild the image. Case 3: rebuild the Dev Container so `postCreateCommand` installs `jq`.     |
 | `rtk: command not found` or no auto-rewrite        | RTK is installed at container create time. Case 1: re-run `./secure-agent-playbook.sh`. Cases 2 & 3: Rebuild Container. Then `rtk --version`, `rtk gain`, and `rtk init --show`. |
+| `headroom: command not found` or proxy down        | Headroom is installed at container create time. Case 1: re-run `./secure-agent-playbook.sh`. Cases 2 & 3: Rebuild Container. Then `bash .devcontainer/start-headroom.sh`, `curl -sS http://127.0.0.1:8787/health`, `headroom doctor`. |
+| Claude cannot reach Anthropic / connection refused | Headroom fail-closes when the proxy is down. Start it (`bash .devcontainer/start-headroom.sh` or a new `claude-box`) and check `~/.headroom/proxy.log`. |
+| Cursor Agent still uses full tokens                | Expected for Cursor-hosted models. Use Headroom MCP tools, or a custom OpenAI-compatible model pointed at `http://127.0.0.1:8787/v1`. Do not enable Override OpenAI Base URL for subscription models. |
 
 ---
 
@@ -502,13 +528,15 @@ Then in Cursor: **Dev Containers: Rebuild Container**.
 All template files live in [`secure-agent-template/`](secure-agent-template/) in this repo. Key contents:
 
 - **`.cursorignore`** — excludes secrets, deps, build output from Cursor indexing
-- **`.claude/settings.json`** — enforces read blocks on secrets and `node_modules/`; points `statusLine` at the project `statusline.sh` (path is relative, not hardcoded to one workspace)
+- **`.cursor/mcp.json`** — Cursor MCP server for Headroom (`/usr/local/bin/headroom mcp serve`)
+- **`.claude/settings.json`** — enforces read blocks on secrets and `node_modules/`; points `statusLine` at the project `statusline.sh` (path is relative, not hardcoded to one workspace); sets `ANTHROPIC_BASE_URL` to the local Headroom proxy
 - **`.claude/statusline.sh`** — Claude Code status bar (context %, model, 5h/7d rate limits). Needs `jq` (installed in the Case 1 image and Case 3 `postCreateCommand`)
 - **`.claude/skills/folder-explore/SKILL.md`** — builds or refreshes `docs/repo-map.md` so later sessions can target files instead of reading the whole repo
-- **`notes.md`** — personal setup notes (workspace Color Theme, git credential helper, what RTK is and how to check savings)
-- **`devcontainer.json`** (both mode) — Ubuntu base, Node 20, Claude Code feature, Claude Code extension in the sidebar, persistent `~/.claude` volume, `postCreateCommand` runs `setup-agent-tools.sh both` (volume permissions, `jq`, RTK + Claude/Cursor hooks), `remoteEnv` for API key/token forwarding
-- **`devcontainer.cursor-only.json`** — same without Claude Code feature; `postCreateCommand` runs `setup-agent-tools.sh cursor` (RTK + Cursor hooks)
-- **`.devcontainer/setup-agent-tools.sh`** — installs RTK to `/usr/local/bin` and runs `rtk init -g` (Claude and/or Cursor). Re-run is idempotent.
+- **`notes.md`** — personal setup notes (workspace Color Theme, git credential helper, what RTK and Headroom are and how to check savings)
+- **`devcontainer.json`** (both mode) — Ubuntu base, Node 20, Claude Code feature, Claude Code extension in the sidebar, persistent `~/.claude` volume, `postCreateCommand` runs `setup-agent-tools.sh both` (volume permissions, `jq`, RTK, Headroom, Claude/Cursor hooks), `postStartCommand` starts the Headroom proxy, `remoteEnv` for API key/token forwarding
+- **`devcontainer.cursor-only.json`** — same without Claude Code feature; `postCreateCommand` runs `setup-agent-tools.sh cursor` (RTK, Headroom, Cursor hooks); `postStartCommand` starts the Headroom proxy
+- **`.devcontainer/setup-agent-tools.sh`** — installs RTK and Headroom to `/usr/local/bin`, runs `rtk init -g`, routes Claude through Headroom, starts the proxy. Re-run is idempotent.
+- **`.devcontainer/start-headroom.sh`** — starts `headroom proxy` on `127.0.0.1:8787` if it is not already healthy. Beacon off.
 
 ---
 
@@ -520,3 +548,4 @@ All template files live in [`secure-agent-template/`](secure-agent-template/) in
 - [Claude Code status line](https://code.claude.com/docs/en/statusline)
 - [Claude Code environment variables](https://code.claude.com/docs/en/env-vars)
 - [RTK (Rust Token Killer)](https://github.com/rtk-ai/rtk)
+- [Headroom](https://github.com/headroomlabs-ai/headroom)

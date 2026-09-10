@@ -3,6 +3,7 @@
 *.key
 credentials.json
 .claude/settings.local.json
+.claude/.headroom_wrap_*
 node_modules/
 dist/
 build/

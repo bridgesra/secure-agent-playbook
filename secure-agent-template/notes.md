@@ -16,6 +16,22 @@ rtk init --show   # confirm the hook is installed
 
 If `rtk` is missing, rebuild the Dev Container (Cases 2 & 3) or re-run `./secure-agent-playbook.sh` on your Mac (Case 1).
 
+## Headroom (token compression proxy)
+
+[Headroom](https://github.com/headroomlabs-ai/headroom) runs a local proxy on `127.0.0.1:8787`. Claude Code is pointed at it automatically. Cursor Agent can call Headroom MCP tools (`headroom_compress`, `headroom_retrieve`, `headroom_stats`); Cursor-hosted models are not routed through the proxy.
+
+The proxy must be running. If it is down, Claude fail-closes instead of talking to Anthropic directly.
+
+```bash
+curl -sS http://127.0.0.1:8787/health
+headroom doctor
+headroom dashboard --no-open   # http://127.0.0.1:8787/dashboard
+```
+
+Anonymous Headroom telemetry is off (`HEADROOM_BEACON=off`). Do not enable Cursor's Override OpenAI Base URL for Cursor-hosted models.
+
+If the proxy is missing, rebuild the Dev Container (Cases 2 & 3) or re-run `./secure-agent-playbook.sh` on your Mac (Case 1). Then `bash .devcontainer/start-headroom.sh`.
+
 ## Change color of only this folder's workspace
 
 Use Cmd+, to open Settings, then:

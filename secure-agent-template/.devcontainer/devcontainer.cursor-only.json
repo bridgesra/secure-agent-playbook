@@ -6,7 +6,19 @@
       "version": "20"
     }
   },
+  "containerEnv": {
+    "HEADROOM_BEACON": "off",
+    "DO_NOT_TRACK": "1"
+  },
+  "forwardPorts": [8787],
+  "portsAttributes": {
+    "8787": {
+      "label": "Headroom dashboard",
+      "onAutoForward": "silent"
+    }
+  },
   "postCreateCommand": "bash .devcontainer/setup-agent-tools.sh cursor",
+  "postStartCommand": "bash .devcontainer/start-headroom.sh",
   "customizations": {
     "vscode": {
       "extensions": [

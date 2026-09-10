@@ -35,11 +35,40 @@ RUN npm install -g @anthropic-ai/claude-code
 RUN curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh \
   | RTK_INSTALL_DIR=/usr/local/bin sh
 
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh \
+  && mkdir -p /usr/local/share/uv/tools /usr/local/share/uv/python \
+  && env \
+    UV_TOOL_BIN_DIR=/usr/local/bin \
+    UV_TOOL_DIR=/usr/local/share/uv/tools \
+    UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python \
+    uv tool install --python 3.13 "headroom-ai[proxy,mcp]"
+
+ENV HEADROOM_BEACON=off \
+    DO_NOT_TRACK=1 \
+    ANTHROPIC_BASE_URL=http://127.0.0.1:8787
+
 RUN cat >/usr/local/bin/claude-entrypoint.sh <<'EOF'
 #!/bin/bash
 export PATH="/usr/local/bin:${PATH}"
+export HEADROOM_BEACON="${HEADROOM_BEACON:-off}"
+export DO_NOT_TRACK="${DO_NOT_TRACK:-1}"
+export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://127.0.0.1:8787}"
 if command -v rtk >/dev/null 2>&1; then
   rtk init -g --auto-patch --no-trust-filters >/dev/null 2>&1 || true
+fi
+if command -v headroom >/dev/null 2>&1; then
+  mkdir -p "${HOME}/.headroom"
+  if ! curl -sf --max-time 1 http://127.0.0.1:8787/health >/dev/null 2>&1; then
+    nohup headroom proxy --host 127.0.0.1 --port 8787 >>"${HOME}/.headroom/proxy.log" 2>&1 &
+    i=0
+    while [ "${i}" -lt 30 ]; do
+      if curl -sf --max-time 1 http://127.0.0.1:8787/health >/dev/null 2>&1; then
+        break
+      fi
+      i=$((i + 1))
+      sleep 1
+    done
+  fi
 fi
 exec claude "$@"
 EOF
@@ -144,6 +173,9 @@ claude-box() {
     -e CLAUDE_CONFIG_DIR=/home/agent/.claude \
     -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}" \
     -e CLAUDE_CODE_OAUTH_TOKEN="${CLAUDE_CODE_OAUTH_TOKEN:-}" \
+    -e HEADROOM_BEACON=off \
+    -e DO_NOT_TRACK=1 \
+    -e ANTHROPIC_BASE_URL=http://127.0.0.1:8787 \
     -u "${uid}:${gid}" \
     -w /workspace \
     claude-secure-sandbox:latest "$@"
