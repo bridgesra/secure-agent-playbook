@@ -126,7 +126,7 @@ Cases 1 and 3 need a way for Claude Code to authenticate. Case 2 (Cursor only) d
 
 After adding env vars to `~/.zshrc`, run `source ~/.zshrc` again.
 
-**Case 3 note:** The template `devcontainer.json` includes `remoteEnv` so API keys and OAuth tokens from your Mac reach the container, and `postCreateCommand` so the `~/.claude` volume is writable by the `vscode` user (required for in-container OAuth) and so `jq` is installed for the status line.
+**Case 3 note:** The template `devcontainer.json` includes `remoteEnv` so API keys and OAuth tokens from your Mac reach the container, and `postCreateCommand` (`.devcontainer/setup-agent-tools.sh`) so the `~/.claude` volume is writable by the `vscode` user (required for in-container OAuth), `jq` is installed for the status line, and RTK hooks are registered for Claude Code and Cursor.
 
 Details and reliability notes for each case are in [Case 1](#case-1--claude-code-only) and [Case 3](#case-3--cursor--claude-code).
 
@@ -206,10 +206,13 @@ my-app/
 ├── .gitignore
 └── .devcontainer/
     ├── devcontainer.json              # default (Cursor + Claude feature)
-    └── devcontainer.cursor-only.json  # used when mode=cursor
+    ├── devcontainer.cursor-only.json  # used when mode=cursor
+    └── setup-agent-tools.sh           # installs jq, RTK, and agent hooks
 ```
 
 **Case 1 note:** `new-project foo claude` still copies `.devcontainer/` files. You won't use them — that's fine. Ignore the folder.
+
+**RTK:** New containers install [RTK](https://github.com/rtk-ai/rtk) and register **global** hooks so Claude Code and Cursor rewrite verbose shell commands (for example `git status` → `rtk git status`) before the agent reads the output. Cursor hooks are global-only, so this is done at container setup time, not as a file in the git repo. Case 1 installs RTK in the `claude-secure-sandbox` image. Cases 2 and 3 run `.devcontainer/setup-agent-tools.sh` from `postCreateCommand`.
 
 ### Ignore vs rules vs hard blocks
 
@@ -473,6 +476,7 @@ Then in Cursor: **Dev Containers: Rebuild Container**.
 | `claude-config-volume` owned by root (Case 1)      | `docker volume rm claude-config-volume`, re-run `./secure-agent-playbook.sh`, `source ~/.zshrc`                                                                  |
 | Extensions not installing                          | Use `customizations.vscode`, not `customizations.cursor`                                                                                                         |
 | Status line is blank                               | Script needs `jq`. Case 1: re-run `./secure-agent-playbook.sh` to rebuild the image. Case 3: rebuild the Dev Container so `postCreateCommand` installs `jq`.     |
+| `rtk: command not found` or no auto-rewrite        | RTK is installed at container create time. Case 1: re-run `./secure-agent-playbook.sh`. Cases 2 & 3: Rebuild Container. Then `rtk --version`, `rtk gain`, and `rtk init --show`. |
 
 ---
 
@@ -485,8 +489,9 @@ All template files live in [`secure-agent-template/`](secure-agent-template/) in
 - **`.claude/statusline.sh`** — Claude Code status bar (context %, model, 5h/7d rate limits). Needs `jq` (installed in the Case 1 image and Case 3 `postCreateCommand`)
 - **`.claude/skills/folder-explore/SKILL.md`** — builds or refreshes `docs/repo-map.md` so later sessions can target files instead of reading the whole repo
 - **`notes.md`** — personal setup notes (workspace Color Theme, git credential helper)
-- **`devcontainer.json`** (both mode) — Ubuntu base, Node 20, Claude Code feature, Claude Code extension in the sidebar, persistent `~/.claude` volume, `postCreateCommand` for volume permissions and `jq`, `remoteEnv` for API key/token forwarding
-- **`devcontainer.cursor-only.json`** — same without Claude Code feature
+- **`devcontainer.json`** (both mode) — Ubuntu base, Node 20, Claude Code feature, Claude Code extension in the sidebar, persistent `~/.claude` volume, `postCreateCommand` runs `setup-agent-tools.sh both` (volume permissions, `jq`, RTK + Claude/Cursor hooks), `remoteEnv` for API key/token forwarding
+- **`devcontainer.cursor-only.json`** — same without Claude Code feature; `postCreateCommand` runs `setup-agent-tools.sh cursor` (RTK + Cursor hooks)
+- **`.devcontainer/setup-agent-tools.sh`** — installs RTK to `/usr/local/bin` and runs `rtk init -g` (Claude and/or Cursor). Re-run is idempotent.
 
 ---
 
@@ -497,3 +502,4 @@ All template files live in [`secure-agent-template/`](secure-agent-template/) in
 - [Claude Code skills](https://code.claude.com/docs/en/skills)
 - [Claude Code status line](https://code.claude.com/docs/en/statusline)
 - [Claude Code environment variables](https://code.claude.com/docs/en/env-vars)
+- [RTK (Rust Token Killer)](https://github.com/rtk-ai/rtk)

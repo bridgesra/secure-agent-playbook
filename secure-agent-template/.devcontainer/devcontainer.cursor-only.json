@@ -6,6 +6,7 @@
       "version": "20"
     }
   },
+  "postCreateCommand": "bash .devcontainer/setup-agent-tools.sh cursor",
   "customizations": {
     "vscode": {
       "extensions": [

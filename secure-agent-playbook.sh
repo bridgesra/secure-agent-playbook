@@ -32,11 +32,24 @@ RUN apt-get update \
 RUN useradd -m -u 1001 -s /bin/bash claudeuser
 RUN npm install -g @anthropic-ai/claude-code
 
+RUN curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh \
+  | RTK_INSTALL_DIR=/usr/local/bin sh
+
+RUN cat >/usr/local/bin/claude-entrypoint.sh <<'EOF'
+#!/bin/bash
+export PATH="/usr/local/bin:${PATH}"
+if command -v rtk >/dev/null 2>&1; then
+  rtk init -g --auto-patch --no-trust-filters >/dev/null 2>&1 || true
+fi
+exec claude "$@"
+EOF
+RUN chmod +x /usr/local/bin/claude-entrypoint.sh
+
 WORKDIR /workspace
 RUN chown -R claudeuser:claudeuser /workspace
 
 USER claudeuser
-ENTRYPOINT ["claude"]
+ENTRYPOINT ["/usr/local/bin/claude-entrypoint.sh"]
 DOCKERFILE
 
 docker build -t claude-secure-sandbox:latest "${SANDBOX_DIR}"

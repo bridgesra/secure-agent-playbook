@@ -17,7 +17,7 @@
     "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
     "CLAUDE_CODE_OAUTH_TOKEN": "${localEnv:CLAUDE_CODE_OAUTH_TOKEN}"
   },
-  "postCreateCommand": "sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends jq && sudo mkdir -p /home/vscode/.claude && sudo chown -R vscode:vscode /home/vscode/.claude && chmod 700 /home/vscode/.claude",
+  "postCreateCommand": "bash .devcontainer/setup-agent-tools.sh both",
   "customizations": {
     "vscode": {
       "extensions": [
