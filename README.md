@@ -126,7 +126,7 @@ Cases 1 and 3 need a way for Claude Code to authenticate. Case 2 (Cursor only) d
 
 After adding env vars to `~/.zshrc`, run `source ~/.zshrc` again.
 
-**Case 3 note:** The template `devcontainer.json` includes `remoteEnv` so API keys and OAuth tokens from your Mac reach the container, and `postCreateCommand` so the `~/.claude` volume is writable by the `vscode` user (required for in-container OAuth).
+**Case 3 note:** The template `devcontainer.json` includes `remoteEnv` so API keys and OAuth tokens from your Mac reach the container, and `postCreateCommand` so the `~/.claude` volume is writable by the `vscode` user (required for in-container OAuth) and so `jq` is installed for the status line.
 
 Details and reliability notes for each case are in [Case 1](#case-1--claude-code-only) and [Case 3](#case-3--cursor--claude-code).
 
@@ -196,7 +196,11 @@ my-app/
 │   └── global-standards.mdc   # Cursor: always-on rules
 ├── .claudeignore              # Claude: skip from automatic context
 ├── .claude/
-│   └── settings.json          # Claude: hard-block reads (permissions.deny)
+│   ├── settings.json          # Claude: hard-block reads + status line
+│   ├── statusline.sh          # Claude: context / rate-limit status bar
+│   └── skills/
+│       └── folder-explore/
+│           └── SKILL.md       # Claude: build/refresh docs/repo-map.md
 ├── CLAUDE.md                  # Claude: project instructions every session
 ├── notes.md                   # Personal setup notes (theme, git credentials)
 ├── .gitignore
@@ -214,7 +218,9 @@ my-app/
 | `.cursorignore`         | Cursor      | Excludes paths from indexing/context               |
 | `.cursor/rules/*.mdc`   | Cursor      | Persistent instructions (`alwaysApply: true`)      |
 | `.claudeignore`         | Claude Code | Advisory — Claude won't auto-load these paths      |
-| `.claude/settings.json` | Claude Code | **Enforced** — `permissions.deny` blocks Read tool |
+| `.claude/settings.json` | Claude Code | **Enforced** — `permissions.deny` blocks Read tool; wires the status line |
+| `.claude/statusline.sh` | Claude Code | Status bar: context %, model, 5h/7d usage |
+| `.claude/skills/`       | Claude Code | Project skills Claude can invoke (folder-explore ships by default) |
 | `CLAUDE.md`             | Claude Code | Loaded at the start of every session               |
 
 To customize defaults, edit files in `secure-agent-template/` and re-run `./secure-agent-playbook.sh`.
@@ -466,6 +472,7 @@ Then in Cursor: **Dev Containers: Rebuild Container**.
 | OAuth browser auth works but no code / login fails | Case 3: use API key or fix volume perms. Case 1: paste the OAuth code when prompted; browser callback alone often fails in standalone Docker |
 | `claude-config-volume` owned by root (Case 1)      | `docker volume rm claude-config-volume`, re-run `./secure-agent-playbook.sh`, `source ~/.zshrc`                                                                  |
 | Extensions not installing                          | Use `customizations.vscode`, not `customizations.cursor`                                                                                                         |
+| Status line is blank                               | Script needs `jq`. Case 1: re-run `./secure-agent-playbook.sh` to rebuild the image. Case 3: rebuild the Dev Container so `postCreateCommand` installs `jq`.     |
 
 ---
 
@@ -474,9 +481,11 @@ Then in Cursor: **Dev Containers: Rebuild Container**.
 All template files live in [`secure-agent-template/`](secure-agent-template/) in this repo. Key contents:
 
 - **`.cursorignore`** — excludes secrets, deps, build output from Cursor indexing
-- **`.claude/settings.json`** — enforces read blocks on secrets and `node_modules/`
+- **`.claude/settings.json`** — enforces read blocks on secrets and `node_modules/`; points `statusLine` at the project `statusline.sh` (path is relative, not hardcoded to one workspace)
+- **`.claude/statusline.sh`** — Claude Code status bar (context %, model, 5h/7d rate limits). Needs `jq` (installed in the Case 1 image and Case 3 `postCreateCommand`)
+- **`.claude/skills/folder-explore/SKILL.md`** — builds or refreshes `docs/repo-map.md` so later sessions can target files instead of reading the whole repo
 - **`notes.md`** — personal setup notes (workspace Color Theme, git credential helper)
-- **`devcontainer.json`** (both mode) — Ubuntu base, Node 20, Claude Code feature, Claude Code extension in the sidebar, persistent `~/.claude` volume, `postCreateCommand` for volume permissions, `remoteEnv` for API key/token forwarding
+- **`devcontainer.json`** (both mode) — Ubuntu base, Node 20, Claude Code feature, Claude Code extension in the sidebar, persistent `~/.claude` volume, `postCreateCommand` for volume permissions and `jq`, `remoteEnv` for API key/token forwarding
 - **`devcontainer.cursor-only.json`** — same without Claude Code feature
 
 ---
@@ -485,4 +494,6 @@ All template files live in [`secure-agent-template/`](secure-agent-template/) in
 
 - [Claude Code devcontainer docs](https://code.claude.com/docs/en/devcontainer)
 - [Claude Code settings](https://code.claude.com/docs/en/settings)
+- [Claude Code skills](https://code.claude.com/docs/en/skills)
+- [Claude Code status line](https://code.claude.com/docs/en/statusline)
 - [Claude Code environment variables](https://code.claude.com/docs/en/env-vars)

@@ -1,0 +1,19 @@
+---
+description: Local clone layout for artifact repos (gitignored; not this paper repo)
+alwaysApply: true
+---
+
+# Local trees (not this writing repo)
+
+This workspace is the NDSS paper repo (`project-violet-paper-2`). Do **not** treat it as the honeynet or data artifact. Those live in gitignored sibling trees:
+
+| Path | Role | GitHub |
+|------|------|--------|
+| `external-legacy/` | Dirty history: JuVi, Anton 2.0, summer bobby. **Read-only. Do not publish.** | various |
+| `external-legacy/Project-Violet-2.0-anton` | Anton upstream reference for Release B | AntonGust/Project-Violet-2.0 |
+| `external-to-release/project-violet-data-repo` | Release A (Beelzebub + `pv-data/`) | own remote |
+| `external-to-release/project-violet-agentic-honeynet` | Release B working copy | `bridgesra/project-violet-agentic-honeynet` (private) |
+
+- Push Release B to **that** remote, never into `project-violet-paper-2`.
+- Do not nest the honeynet Docker stack in this paper-repo devcontainer. Target is an **Ubuntu 22.04/24.04 Linux VM** with Docker Engine. See that tree's `README.md`, `docs/DEPLOY-LAB.md`, and `docs/DEPLOY-COLLECTOR-OPS.md`.
+- Current paper-todo **Next task** is review lab logs, then production collector path (Cloud Agent).

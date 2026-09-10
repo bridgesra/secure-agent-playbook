@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /workspaces/project-violet-paper-2 rev-parse HEAD)"
+    ]
+  }
+}
