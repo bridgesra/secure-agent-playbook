@@ -31,7 +31,7 @@ Agent index of this repo. Refresh after moves/adds/deletes.
 Source tree copied to `~/.config/secure-agent-template/` and into each `new-project`. Change defaults here.
 
 - [CLAUDE.md](secure-agent-template/CLAUDE.md) — standards pasted into every new project.
-- [notes.md](secure-agent-template/notes.md) — workspace theme, git credential helper, RTK and Headroom how-to.
+- [notes.md](secure-agent-template/notes.md) — copied into every new project: theme, git credentials, RTK, Headroom daily use and dashboard.
 - [.gitignore](secure-agent-template/.gitignore) — secrets, build output, Claude local/Headroom wrap files.
 - [.claudeignore](secure-agent-template/.claudeignore) — advisory skip list for Claude context.
 - [.cursorignore](secure-agent-template/.cursorignore) — Cursor indexing skip list.

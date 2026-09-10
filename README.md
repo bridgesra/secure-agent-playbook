@@ -235,23 +235,25 @@ Cursor hooks are global-only, so RTK is registered at container setup, not as a 
 
 ### Headroom (token compression proxy)
 
-New containers install [Headroom](https://github.com/headroomlabs-ai/headroom) and keep a local proxy on `127.0.0.1:8787`. Claude Code is routed through it automatically (`ANTHROPIC_BASE_URL`). You still type `claude` as usual — do not use `headroom wrap` for daily use.
+New containers install [Headroom](https://github.com/headroomlabs-ai/headroom) and keep a local proxy on `127.0.0.1:8787`. Each project also gets a copy of this how-to in `notes.md`.
 
-**What it is.** Headroom compresses tool outputs, logs, and other bulky context on the way to the model. RTK shrinks shell output before the agent reads it; Headroom shrinks whatever still goes to the LLM. Keep both. Serena is not installed.
+**What it is.** Headroom compresses tool outputs, logs, and other bulky context before they reach the model. RTK shrinks shell output before the agent reads it; Headroom shrinks whatever still goes to the LLM. Keep both. Serena is not installed. Telemetry is off (`HEADROOM_BEACON=off`).
 
-**Cursor Agent** (Composer / this chat, Cursor-hosted models) is not wrapped. Override OpenAI Base URL would send subscription models at Headroom and break them. Cursor gets Headroom as MCP tools only (`.cursor/mcp.json`).
+**Daily use.** Type `claude` as usual — do not use `headroom wrap`. Claude Code is routed automatically (`ANTHROPIC_BASE_URL`). Cursor Agent (Composer / chat, Cursor-hosted models) is **not** wrapped; it can use Headroom MCP tools from `.cursor/mcp.json`. Do not enable Cursor's Override OpenAI Base URL for subscription models.
 
-**Telemetry is off** (`HEADROOM_BEACON=off`, `DO_NOT_TRACK=1`).
-
-**See savings** (inside the container, after Claude has made a request):
+**Check it** (inside the container, after the proxy is up):
 
 ```bash
 curl -sS http://127.0.0.1:8787/health
 headroom doctor
-headroom dashboard --no-open   # http://127.0.0.1:8787/dashboard
 ```
 
-If the proxy is down, Claude fail-closes (it will not silently talk to Anthropic). Restart it with `bash .devcontainer/start-headroom.sh`. Case 1 starts the proxy in the `claude-box` entrypoint. Cases 2 and 3 start it from `postStartCommand`.
+**Dashboard.** After Claude has made a request, open the live savings page:
+
+- **Cases 2 and 3:** in a Mac browser, [http://127.0.0.1:8787/dashboard](http://127.0.0.1:8787/dashboard) (port `8787` is forwarded).
+- **Case 1:** the proxy stays loopback inside `claude-box`. Use `curl -sS http://127.0.0.1:8787/stats` and `headroom doctor` in that session.
+
+If the proxy is down, Claude fail-closes (it will not silently talk to Anthropic). Restart it with `bash .devcontainer/start-headroom.sh`. Case 1 starts the proxy in the `claude-box` entrypoint. Cases 2 and 3 start it from `postStartCommand`. Details for a new project live in that repo's `notes.md`.
 
 ### Ignore vs rules vs hard blocks
 
@@ -532,7 +534,7 @@ All template files live in [`secure-agent-template/`](secure-agent-template/) in
 - **`.claude/settings.json`** — enforces read blocks on secrets and `node_modules/`; points `statusLine` at the project `statusline.sh` (path is relative, not hardcoded to one workspace); sets `ANTHROPIC_BASE_URL` to the local Headroom proxy
 - **`.claude/statusline.sh`** — Claude Code status bar (context %, model, 5h/7d rate limits). Needs `jq` (installed in the Case 1 image and Case 3 `postCreateCommand`)
 - **`.claude/skills/folder-explore/SKILL.md`** — builds or refreshes `docs/repo-map.md` so later sessions can target files instead of reading the whole repo
-- **`notes.md`** — personal setup notes (workspace Color Theme, git credential helper, what RTK and Headroom are and how to check savings)
+- **`notes.md`** — personal setup notes: Color Theme, git credential helper, RTK, and Headroom (what it is, daily use, health check, dashboard URL)
 - **`devcontainer.json`** (both mode) — Ubuntu base, Node 20, Claude Code feature, Claude Code extension in the sidebar, persistent `~/.claude` volume, `postCreateCommand` runs `setup-agent-tools.sh both` (volume permissions, `jq`, RTK, Headroom, Claude/Cursor hooks), `postStartCommand` starts the Headroom proxy, `remoteEnv` for API key/token forwarding
 - **`devcontainer.cursor-only.json`** — same without Claude Code feature; `postCreateCommand` runs `setup-agent-tools.sh cursor` (RTK, Headroom, Cursor hooks); `postStartCommand` starts the Headroom proxy
 - **`.devcontainer/setup-agent-tools.sh`** — installs RTK and Headroom to `/usr/local/bin`, runs `rtk init -g`, routes Claude through Headroom, starts the proxy. Re-run is idempotent.
