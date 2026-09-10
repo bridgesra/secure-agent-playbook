@@ -202,7 +202,7 @@ my-app/
 │       └── folder-explore/
 │           └── SKILL.md       # Claude: build/refresh docs/repo-map.md
 ├── CLAUDE.md                  # Claude: project instructions every session
-├── notes.md                   # Personal setup notes (theme, git credentials)
+├── notes.md                   # Personal setup notes (theme, git credentials, RTK)
 ├── .gitignore
 └── .devcontainer/
     ├── devcontainer.json              # default (Cursor + Claude feature)
@@ -212,7 +212,24 @@ my-app/
 
 **Case 1 note:** `new-project foo claude` still copies `.devcontainer/` files. You won't use them — that's fine. Ignore the folder.
 
-**RTK:** New containers install [RTK](https://github.com/rtk-ai/rtk) and register **global** hooks so Claude Code and Cursor rewrite verbose shell commands (for example `git status` → `rtk git status`) before the agent reads the output. Cursor hooks are global-only, so this is done at container setup time, not as a file in the git repo. Case 1 installs RTK in the `claude-secure-sandbox` image. Cases 2 and 3 run `.devcontainer/setup-agent-tools.sh` from `postCreateCommand`.
+### RTK (token-saving shell proxy)
+
+New containers install [RTK](https://github.com/rtk-ai/rtk) automatically. You do not type `rtk` yourself.
+
+**What it is.** RTK sits between the agent and the shell. When Claude Code or Cursor Agent is about to run a Bash/Shell command, a hook rewrites it if RTK knows that command (`git status` becomes `rtk git status`). RTK runs the real command, compresses the output (failures only, compact git status, shorter diffs), and that short text is what the agent reads. Built-in tools like Read, Grep, and Glob skip the hook.
+
+**Savings are bash-output savings**, not a 90% cut of your bill. RTK reports estimated tokens as `bytes / 4`. The percentages are the useful number.
+
+**See savings** (inside the container, after some agent shell commands):
+
+```bash
+rtk --version
+rtk gain          # totals
+rtk gain --graph  # with a simple chart
+rtk init --show   # confirm the hook is installed
+```
+
+Cursor hooks are global-only, so RTK is registered at container setup, not as a file in the git repo. Case 1 installs it in the `claude-secure-sandbox` image. Cases 2 and 3 run `.devcontainer/setup-agent-tools.sh` from `postCreateCommand`. Each new project also gets a short RTK note in `notes.md`.
 
 ### Ignore vs rules vs hard blocks
 
@@ -488,7 +505,7 @@ All template files live in [`secure-agent-template/`](secure-agent-template/) in
 - **`.claude/settings.json`** — enforces read blocks on secrets and `node_modules/`; points `statusLine` at the project `statusline.sh` (path is relative, not hardcoded to one workspace)
 - **`.claude/statusline.sh`** — Claude Code status bar (context %, model, 5h/7d rate limits). Needs `jq` (installed in the Case 1 image and Case 3 `postCreateCommand`)
 - **`.claude/skills/folder-explore/SKILL.md`** — builds or refreshes `docs/repo-map.md` so later sessions can target files instead of reading the whole repo
-- **`notes.md`** — personal setup notes (workspace Color Theme, git credential helper)
+- **`notes.md`** — personal setup notes (workspace Color Theme, git credential helper, what RTK is and how to check savings)
 - **`devcontainer.json`** (both mode) — Ubuntu base, Node 20, Claude Code feature, Claude Code extension in the sidebar, persistent `~/.claude` volume, `postCreateCommand` runs `setup-agent-tools.sh both` (volume permissions, `jq`, RTK + Claude/Cursor hooks), `remoteEnv` for API key/token forwarding
 - **`devcontainer.cursor-only.json`** — same without Claude Code feature; `postCreateCommand` runs `setup-agent-tools.sh cursor` (RTK + Cursor hooks)
 - **`.devcontainer/setup-agent-tools.sh`** — installs RTK to `/usr/local/bin` and runs `rtk init -g` (Claude and/or Cursor). Re-run is idempotent.
