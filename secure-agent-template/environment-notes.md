@@ -1,3 +1,9 @@
+## Status line (Claude Code CLI)
+
+`.claude/statusline.sh` is wired from `.claude/settings.json`. In the **Claude Code terminal CLI** it shows running context, model, effort, and token usage.
+
+It needs `jq`. If the bar is blank, rebuild the Dev Container (Case 3) or re-run `./secure-agent-playbook.sh` on your Mac (Case 1). Cursor-only sessions do not show this bar.
+
 ## RTK (token-saving shell proxy)
 
 [RTK](https://github.com/rtk-ai/rtk) is installed in this container. You do not type `rtk` yourself.

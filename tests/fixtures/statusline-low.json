@@ -1,0 +1,11 @@
+{
+  "model": { "display_name": "Test Haiku" },
+  "context_window": {
+    "used_percentage": 20,
+    "total_input_tokens": 4000
+  },
+  "rate_limits": {
+    "five_hour": { "used_percentage": 11, "resets_at": 1893456000 },
+    "seven_day": { "used_percentage": 4, "resets_at": 1893456000 }
+  }
+}

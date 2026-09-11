@@ -6,6 +6,7 @@ set -euo pipefail
 MODE="${1:-both}"
 export PATH="/usr/local/bin:${HOME}/.local/bin:${PATH}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CLAUDE_HOME="${CLAUDE_HOME:-/home/vscode/.claude}"
 RTK_INSTALLER="https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh"
 UV_INSTALLER="https://astral.sh/uv/install.sh"
 
@@ -32,7 +33,7 @@ install_uv() {
 }
 
 install_headroom() {
-  if [[ -x /usr/local/bin/headroom ]] && /usr/local/bin/headroom --version >/dev/null 2>&1; then
+  if command -v headroom >/dev/null 2>&1 && headroom --version >/dev/null 2>&1; then
     return 0
   fi
   install_uv
@@ -46,6 +47,11 @@ install_headroom() {
 }
 
 prepare_claude_home() {
+  if [[ "${CLAUDE_HOME}" != "/home/vscode/.claude" ]]; then
+    mkdir -p "${CLAUDE_HOME}"
+    chmod 700 "${CLAUDE_HOME}"
+    return 0
+  fi
   sudo mkdir -p /home/vscode/.claude
   sudo chown -R vscode:vscode /home/vscode/.claude
   chmod 700 /home/vscode/.claude
@@ -63,7 +69,7 @@ init_cursor() {
 # Route Claude Code (CLI + sidebar extension) through the local Headroom proxy.
 # ENABLE_TOOL_SEARCH=false avoids "unsupported content type" in the VS Code webview.
 route_claude() {
-  local settings="/home/vscode/.claude/settings.json"
+  local settings="${CLAUDE_HOME}/settings.json"
   local tmp
   if [[ ! -f "${settings}" ]]; then
     echo '{}' > "${settings}"

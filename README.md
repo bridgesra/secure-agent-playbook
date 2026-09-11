@@ -198,12 +198,12 @@ my-app/
 ├── .claudeignore              # Claude: skip from automatic context
 ├── .claude/
 │   ├── settings.json          # Claude: hard-block reads + status line + Headroom URL
-│   ├── statusline.sh          # Claude: context / rate-limit status bar
+│   ├── statusline.sh          # Claude CLI: running context, model, effort, token usage
 │   └── skills/
 │       └── folder-explore/
 │           └── SKILL.md       # Claude: build/refresh docs/repo-map.md
 ├── CLAUDE.md                  # Claude: project instructions every session
-├── notes.md                   # Personal setup notes (theme, git credentials, RTK, Headroom)
+├── notes.md                   # Personal setup notes (theme, git, RTK, Headroom, status line)
 ├── .gitignore
 └── .devcontainer/
     ├── devcontainer.json              # default (Cursor + Claude feature)
@@ -213,6 +213,12 @@ my-app/
 ```
 
 **Case 1 note:** `new-project foo claude` still copies `.devcontainer/` files. You won't use them — that's fine. Ignore the folder.
+
+### Status line (Claude Code CLI)
+
+Each project ships `.claude/statusline.sh`, wired from `.claude/settings.json`. In the **Claude Code terminal CLI** it shows running context, model, effort, and token usage so you can see how full the window is without leaving the session.
+
+It needs `jq` (installed in the Case 1 image and by Case 3 `postCreateCommand`). Cursor-only projects copy the file but do not show it — there is no Claude CLI. If the bar is blank, see [Troubleshooting](#troubleshooting). Each new project also gets a short note in `notes.md`.
 
 ### RTK (token-saving shell proxy)
 
@@ -264,7 +270,7 @@ If the proxy is down, Claude fail-closes (it will not silently talk to Anthropic
 | `.claudeignore`         | Claude Code | Advisory — Claude won't auto-load these paths      |
 | `.cursor/mcp.json`      | Cursor      | Headroom MCP server (`headroom_compress` / retrieve / stats) |
 | `.claude/settings.json` | Claude Code | **Enforced** — `permissions.deny` blocks Read tool; wires the status line; sets `ANTHROPIC_BASE_URL` for Headroom |
-| `.claude/statusline.sh` | Claude Code | Status bar: context %, model, 5h/7d usage |
+| `.claude/statusline.sh` | Claude Code | CLI status bar: running context, model, effort, token usage |
 | `.claude/skills/`       | Claude Code | Project skills Claude can invoke (folder-explore ships by default) |
 | `CLAUDE.md`             | Claude Code | Loaded at the start of every session               |
 
@@ -532,9 +538,9 @@ All template files live in [`secure-agent-template/`](secure-agent-template/) in
 - **`.cursorignore`** — excludes secrets, deps, build output from Cursor indexing
 - **`.cursor/mcp.json`** — Cursor MCP server for Headroom (`/usr/local/bin/headroom mcp serve`)
 - **`.claude/settings.json`** — enforces read blocks on secrets and `node_modules/`; points `statusLine` at the project `statusline.sh` (path is relative, not hardcoded to one workspace); sets `ANTHROPIC_BASE_URL` to the local Headroom proxy
-- **`.claude/statusline.sh`** — Claude Code status bar (context %, model, 5h/7d rate limits). Needs `jq` (installed in the Case 1 image and Case 3 `postCreateCommand`)
+- **`.claude/statusline.sh`** — Claude Code terminal CLI status bar: running context, model, effort, and token usage. Needs `jq` (installed in the Case 1 image and Case 3 `postCreateCommand`)
 - **`.claude/skills/folder-explore/SKILL.md`** — builds or refreshes `docs/repo-map.md` so later sessions can target files instead of reading the whole repo
-- **`notes.md`** — personal setup notes: Color Theme, git credential helper, RTK, and Headroom (what it is, daily use, health check, dashboard URL)
+- **`notes.md`** — personal setup notes: Color Theme, git credential helper, status line, RTK, and Headroom (what it is, daily use, health check, dashboard URL)
 - **`devcontainer.json`** (both mode) — Ubuntu base, Node 20, Claude Code feature, Claude Code extension in the sidebar, persistent `~/.claude` volume, `postCreateCommand` runs `setup-agent-tools.sh both` (volume permissions, `jq`, RTK, Headroom, Claude/Cursor hooks), `postStartCommand` starts the Headroom proxy, `remoteEnv` for API key/token forwarding
 - **`devcontainer.cursor-only.json`** — same without Claude Code feature; `postCreateCommand` runs `setup-agent-tools.sh cursor` (RTK, Headroom, Cursor hooks); `postStartCommand` starts the Headroom proxy
 - **`.devcontainer/setup-agent-tools.sh`** — installs RTK and Headroom to `/usr/local/bin`, runs `rtk init -g`, routes Claude through Headroom, starts the proxy. Re-run is idempotent.

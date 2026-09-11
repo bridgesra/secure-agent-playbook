@@ -86,7 +86,14 @@ docker volume create claude-config-volume >/dev/null 2>&1 || true
 
 if grep -q "${MARKER}" "${ZSHRC}" 2>/dev/null; then
   echo "==> Updating shell helpers in ${ZSHRC}"
-  sed -i '' "/${MARKER}/,/# <<< secure-agent-playbook <<</d" "${ZSHRC}"
+  _playbook_zshrc_tmp="$(mktemp)"
+  awk '
+    /# >>> secure-agent-playbook >>>/ { skip=1; next }
+    /# <<< secure-agent-playbook <<</ { skip=0; next }
+    !skip { print }
+  ' "${ZSHRC}" > "${_playbook_zshrc_tmp}"
+  mv "${_playbook_zshrc_tmp}" "${ZSHRC}"
+  unset _playbook_zshrc_tmp
 else
   echo "==> Adding shell helpers to ${ZSHRC}"
 fi

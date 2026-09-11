@@ -1,0 +1,13 @@
+---
+description: Locked playbook tests are frozen; fix production code when they fail
+alwaysApply: true
+---
+
+# Locked tests
+
+Tests under `tests/contract/`, `tests/unit/`, `tests/installer/`, and `tests/runtime/` that begin with `# LOCKED` are frozen.
+
+- Do not edit a locked test, its fixtures, or its assertions unless the user explicitly okays that change.
+- When a test fails, fix `secure-agent-template/` or `secure-agent-playbook.sh`, not the test.
+- Do not rewrite assertions to match new code, delete failing checks, or update fixtures to silence a break.
+- A new test is not locked until it has been shown to fail against sabotaged production code and then pass after the sabotage is reverted. Follow `tests/POLICY.md`.
