@@ -458,7 +458,9 @@ claude          # inside Cursor terminal
 
 ### Use with existing repos
 
-Copy the template into an existing project:
+To add the **status line, RTK, and Headroom** to a project that was scaffolded before those shipped, do not copy the whole template over it. Follow [docs/upgrade-existing-projects.md](docs/upgrade-existing-projects.md).
+
+To scaffold ignore/rules/devcontainer files into a repo that never used this template:
 
 ```bash
 cp -R ~/.config/secure-agent-template/. /path/to/existing-repo/
