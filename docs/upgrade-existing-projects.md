@@ -34,11 +34,11 @@ source ~/.zshrc
 
 Skip that if you already ran it **after** status line / RTK / Headroom landed.
 
-Set `P` to the old project and `T` to the template (this checkout is the source of truth):
+Set `P` to the old project and `T` to the template (this checkout is the source of truth). Use `$HOME` or an absolute path — **not** `~` inside quotes. Quoted `~` is a literal character, so `T="~/repos/..."` then `cp "$T/file"` looks for a path that starts with `~` and fails.
 
 ```bash
-P="/path/to/existing-repo"
-T="/path/to/secure-agent-playbook/secure-agent-template"
+P="$HOME/path/to/existing-repo"
+T="$HOME/path/to/secure-agent-playbook/secure-agent-template"
 # After a current playbook run you can instead use:
 # T="$HOME/.config/secure-agent-template"
 ```
@@ -145,11 +145,22 @@ jq '
 
 **Case 2:** same command, but `setup-agent-tools.sh cursor` instead of `both`.
 
-If `postCreateCommand` already runs `setup-agent-tools.sh` and you have extra steps, **do not** use that `jq`. Keep your create command and add only:
+Then confirm the start line is in the file (Mac, **before** you rebuild):
+
+```bash
+jq -e '.postStartCommand == "bash .devcontainer/start-headroom.sh"' \
+  "$P/.devcontainer/devcontainer.json"
+```
+
+Must print `true`. If `jq` errors (often `//` comments — `devcontainer.json` is JSONC) or prints `false`, add this field by hand next to `postCreateCommand`. Do **not** skip it. `postCreate` installs the Headroom binary and may start the proxy, but Dev Containers often reap processes from the create command. Without `postStart`, `curl` to `8787` fails after every rebuild.
+
+If `postCreateCommand` already runs `setup-agent-tools.sh` and you have extra steps, **do not** use the full `jq`. Keep your create command and still add:
 
 ```json
 "postStartCommand": "bash .devcontainer/start-headroom.sh"
 ```
+
+That field is what starts the proxy. Skipping it is why `curl 8787` fails after rebuild.
 
 To keep a custom create script and still install tools:
 
@@ -168,25 +179,28 @@ jq --arg cmd 'bash "${CLAUDE_PROJECT_DIR:-.}/.claude/statusline.sh"' '
 ```
 
 6. `grep -qxF '.claude/.headroom_wrap_*' "$P/.gitignore" || echo '.claude/.headroom_wrap_*' >> "$P/.gitignore"`
-7. In Cursor: Command Palette → **Dev Containers: Rebuild Container** (first rebuild can take several minutes: Headroom/Python). If you only added `postStartCommand` and the scripts are already on disk, **Reload Window** / re-attach is enough for the next start; rebuild if `rtk` or `headroom` is missing.
+7. In Cursor: Command Palette → **Dev Containers: Rebuild Container** (first rebuild can take several minutes: Headroom/Python). Wait until the Dev Containers log finishes `Running postStartCommand` before the next step. If you only added `postStartCommand` and the scripts are already on disk, **Reload Window** / re-attach is enough for the next start; rebuild if `rtk` or `headroom` is missing.
 8. In the **container** terminal:
 
 ```bash
 rtk --version && rtk init --show
+curl -sS http://127.0.0.1:8787/health || bash .devcontainer/start-headroom.sh
 curl -sS http://127.0.0.1:8787/health
 headroom doctor
 ```
+
+`health` must show `"status":"healthy"`. `doctor` must show **proxy pass**. If the first `curl` failed, you just started the proxy by hand — `postStartCommand` is missing or did not run. Add it on the Mac (step 4) so the next rebuild does not need this.
 
 ### Why
 
 1. Template vs old repo paths.
 2. `setup-agent-tools.sh` installs `jq` (status line), RTK, Headroom, and agent hooks. `start-headroom.sh` starts the proxy. `statusline.sh` is the CLI bar.
 3. Cursor Agent is not wrapped by the proxy; MCP is how it can compress / retrieve / stats.
-4. Create installs tools; **start** brings the proxy up every attach; port `8787` is the dashboard on the Mac.
+4. Create installs tools; **start** brings the proxy up every attach (and after create-time processes are reaped); port `8787` is the dashboard on the Mac.
 5. Claude Code reads `statusLine` and `ANTHROPIC_BASE_URL` from project settings.
 6. Ignore wrap files.
-7. Rebuild actually runs `postCreate` so binaries and hooks exist.
-8. RTK: Claude hook `[ok]`; add Cursor with `rtk init -g --agent cursor --auto-patch --no-trust-filters` if `rtk init --show` says Cursor hook not found. Headroom: `"status":"healthy"` and **proxy pass**. `shell env` unset in bash is expected — Claude is routed via `.claude/settings.json`. A `savings` warning before any real Claude request is normal.
+7. Rebuild runs `postCreate` (binaries) then `postStart` (proxy). `rtk` / `headroom` on `PATH` is not the same as the proxy listening.
+8. RTK: Claude hook `[ok]`; add Cursor with `rtk init -g --agent cursor --auto-patch --no-trust-filters` if `rtk init --show` says Cursor hook not found. Headroom: `"status":"healthy"` and **proxy pass**. A failed first `curl` plus a passing second `curl` means you started it by hand — fix `postStartCommand` before the next rebuild. `shell env` unset in bash is expected — Claude is routed via `.claude/settings.json`. A `savings` warning before any real Claude request is normal.
 
 ---
 
