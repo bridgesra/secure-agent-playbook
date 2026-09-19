@@ -2,7 +2,9 @@
 
 Run **Claude Code**, **Cursor**, or **both** inside Docker containers on your Mac so agent commands never touch your host filesystem, SSH keys, or cloud credentials directly.
 
-**Audience:** Apple Silicon Mac, `zsh`, comfortable with Terminal. This guide does not cover Linux or Windows.
+**Audience:** Apple Silicon Mac, `zsh`, comfortable with Terminal. This guide does not cover Windows.
+
+**Remote Linux VM (no Docker):** if the VM *is* the sandbox — VS Code Remote SSH, repo on the server, Claude/RTK/Headroom installed on that host — skip Cases 1–3 and follow [docs/remote-linux-vm.md](docs/remote-linux-vm.md).
 
 ---
 
@@ -32,6 +34,8 @@ CASE 3 — Both (one container)
 ```
 
 > **Case 1 does not require Cursor.** You only need Docker/OrbStack and Terminal.
+>
+> **Not using Docker?** A dedicated Linux VM that you treat as the isolation boundary is a different setup (no `claude-box`, no Dev Container). See [docs/remote-linux-vm.md](docs/remote-linux-vm.md).
 >
 > **Security note:** Containers protect your **host** (`~/.ssh`, `~/.aws`, etc.). Your **project folder** is intentionally shared and writable. Ignore files reduce what AI sees; `permissions.deny` in `.claude/settings.json` hard-blocks reads. Neither is a perfect guarantee against a malicious repo.
 
@@ -460,6 +464,8 @@ claude          # inside Cursor terminal
 
 To add the **status line, RTK, and Headroom** to a project that was scaffolded before those shipped, do not copy the whole template over it. Follow [docs/upgrade-existing-projects.md](docs/upgrade-existing-projects.md).
 
+To install Claude, RTK, and Headroom **on a remote Linux VM** (no Docker), follow [docs/remote-linux-vm.md](docs/remote-linux-vm.md) instead of `new-project` / `claude-box`.
+
 To scaffold ignore/rules/devcontainer files into a repo that never used this template:
 
 ```bash
@@ -513,7 +519,7 @@ Then in Cursor: **Dev Containers: Rebuild Container**.
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `secure-agent-template/ not found`                 | Clone the full repo; run `./secure-agent-playbook.sh` from the repo root                                                                                         |
 | `new-project`: template not found                  | Re-run `./secure-agent-playbook.sh`                                                                                                                              |
-| `docker: command not found`                        | Install OrbStack: `brew install orbstack`, then launch it                                                                                                        |
+| `docker: command not found`                        | Mac Cases 1–3: install OrbStack (`brew install orbstack`) and launch it. Linux VM with no Docker: you want [docs/remote-linux-vm.md](docs/remote-linux-vm.md), not this README. |
 | Docker build permissions error on `~/.docker/buildx` | `sudo chown -R "$(whoami):staff" ~/.docker/buildx`, then re-run setup script                                                                                  |
 | Reopen in Container hangs                          | Update `anysphere.remote-containers`; try Rebuild Without Cache                                                                                                  |
 | First container build is very slow                 | Normal — image pull + Headroom/Python install can take 5–15 min the first time                                                                                   |
@@ -552,6 +558,9 @@ All template files live in [`secure-agent-template/`](secure-agent-template/) in
 
 ## References
 
+- [Remote Linux VM (no Docker)](docs/remote-linux-vm.md) — Claude, RTK, and Headroom on a Linux host via VS Code Remote SSH
+- [Upgrade existing (containerized) projects](docs/upgrade-existing-projects.md)
+- [Claude Code native install](https://code.claude.com/docs/en/installation)
 - [Claude Code devcontainer docs](https://code.claude.com/docs/en/devcontainer)
 - [Claude Code settings](https://code.claude.com/docs/en/settings)
 - [Claude Code skills](https://code.claude.com/docs/en/skills)
