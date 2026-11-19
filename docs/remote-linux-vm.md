@@ -1,6 +1,6 @@
 # Claude Code on a remote Linux VM (no Docker)
 
-Use this when the **VM is the isolation boundary**: you open VS Code on your laptop, SSH into a Linux server, and run Claude Code, RTK, and Headroom **on that host**. Do not use Cases 1–3 (`claude-box`, Dev Containers, `./secure-agent-playbook.sh`). Those exist to sandbox a Mac. Here the sandbox is the machine.
+Use this when the **VM is the isolation boundary**: you open VS Code on your laptop, SSH into a Linux server, and run Claude Code, RTK, and Headroom **on that host**. Do not use Cases 1–2 (`claude-box`, Dev Containers, `./secure-agent-playbook.sh`). Those exist to sandbox a Mac. Here the sandbox is the machine.
 
 Claude runs as **your Linux user**. It can read anything that account can read (`~/.ssh`, other projects, env files). Put only the analysis work on this VM, or tighten `permissions.deny`.
 
@@ -27,7 +27,7 @@ Laptop (VS Code UI)
 | **RTK** | Shrinks **shell** output before the agent reads it | Automatic via hooks. You do not type `rtk`. |
 | **Headroom** | Shrinks **whatever still goes to the LLM** (`127.0.0.1:8787`) | Type `claude` as usual. If the proxy is down, Claude **fail-closes**. |
 
-Keep RTK and Headroom both. Cursor/MCP files in the template are unused in this workflow; leaving them is harmless.
+Keep RTK and Headroom both.
 
 ---
 
@@ -75,7 +75,7 @@ Use your fork URL if that is what you maintain.
 ```bash
 export CLAUDE_HOME="$HOME/.claude"
 export PATH="/usr/local/bin:$HOME/.local/bin:$PATH"
-bash "$HOME/.config/secure-agent-template/.devcontainer/setup-agent-tools.sh" claude
+bash "$HOME/.config/secure-agent-template/.devcontainer/setup-agent-tools.sh"
 ```
 
 Needs `sudo` for packages and `/usr/local/bin`. Re-run is idempotent.
@@ -231,7 +231,7 @@ Optional git helper on the VM: `git config --global credential.helper store`.
 | `health` fails, Claude cannot reach Anthropic | Proxy down. Run `start-headroom.sh`. Check `~/.headroom/proxy.log`. Do not unset `ANTHROPIC_BASE_URL` to “fix” it — that bypasses Headroom. |
 | Status line blank | Install `jq`. |
 | Login works on the laptop but not on the VM | Auth is on the VM user. Set the API key or `/login` in the remote terminal. |
-| Want Docker isolation instead | You are on the wrong page. Use Cases 1–3 in [README.md](../README.md) (Mac + containers), or run a Dev Container **on** the VM if you need the agent sandboxed from this host. |
+| Want Docker isolation instead | You are on the wrong page. Use Cases 1–2 in [README.md](../README.md) (Mac + containers), or run a Dev Container **on** the VM if you need the agent sandboxed from this host. |
 
 ---
 
@@ -249,7 +249,7 @@ Do not commit `ANTHROPIC_API_KEY` or `.env`. Do not bind Headroom to a public in
 
 ## See also
 
-- [README.md](../README.md) — Mac + Docker Cases 1–3
+- [README.md](../README.md) — Mac + Docker Cases 1–2
 - [upgrade-existing-projects.md](upgrade-existing-projects.md) — merge RTK/Headroom into an old **containerized** project (not this host-install path)
 - [Claude Code native install](https://code.claude.com/docs/en/installation)
 - [RTK](https://github.com/rtk-ai/rtk)

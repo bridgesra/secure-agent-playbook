@@ -4,7 +4,7 @@ For repos created with `new-project` (or a copy of `secure-agent-template/`) **b
 
 Do **not** run `cp -R ~/.config/secure-agent-template/.` over the old repo. That overwrites `CLAUDE.md`, skills, ignore files, and any `permissions.deny` or Dev Container customizations.
 
-**Where to run this.** File copies and `jq` edits: **Mac Terminal**, not the target Dev Container. `$HOME/.config/secure-agent-template` and `claude-box` live on the host. Checks that need `rtk` / `headroom` / `curl 8787`: inside the agent environment (Case 1: `docker exec` into `claude-box`, or ask Claude to run them; Cases 2/3: Cursor integrated terminal after rebuild).
+**Where to run this.** File copies and `jq` edits: **Mac Terminal**, not the target Dev Container. `$HOME/.config/secure-agent-template` and `claude-box` live on the host. Checks that need `rtk` / `headroom` / `curl 8787`: inside the agent environment (Case 1: `docker exec` into `claude-box`, or ask Claude to run them; Case 2: VS Code integrated terminal after rebuild).
 
 `claude-box` is a **zsh function this playbook writes into `~/.zshrc`**. It is not an Anthropic command. It starts this playbook’s Docker image and **opens the Claude CLI** — that is Case 1 by design, not a bash prompt.
 
@@ -14,9 +14,9 @@ Do **not** run `cp -R ~/.config/secure-agent-template/.` over the old repo. That
 
 | Piece | What it does | Daily use |
 | --- | --- | --- |
-| **Status line** | Claude Code CLI bar: context %, model, effort, token usage | Appears in `claude` / `claude-box`. Needs `jq`. Cursor-only (Case 2) copies the file but does not show it. |
-| **RTK** | Shrinks **shell** output before the agent reads it | Automatic via hooks. You do not type `rtk`. |
-| **Headroom** | Shrinks **whatever still goes to the LLM** (local proxy on `127.0.0.1:8787`) | Type `claude` as usual. Cursor Agent chat is **not** proxied; it can use Headroom MCP tools. Do not enable Cursor’s Override OpenAI Base URL for subscription models. |
+| **Status line** | Claude Code CLI bar: context %, model, effort, token usage | Appears in `claude` / `claude-box`. Needs `jq`. |
+| **RTK** | Shrinks **shell** output before Claude reads it | Automatic via hooks. You do not type `rtk`. |
+| **Headroom** | Shrinks **whatever still goes to the LLM** (local proxy on `127.0.0.1:8787`) | Type `claude` as usual. |
 
 Keep RTK and Headroom both. If the Headroom proxy is down, Claude **fail-closes** (it will not talk to Anthropic directly).
 
@@ -43,7 +43,7 @@ T="$HOME/path/to/secure-agent-playbook/secure-agent-template"
 # T="$HOME/.config/secure-agent-template"
 ```
 
-Repeat per old project. Pick **Case 1** or **Cases 2 and 3** below.
+Repeat per old project. Pick **Case 1** or **Case 2** below. Projects made before Cursor support was removed also need [Remove Cursor files](#remove-cursor-files-from-an-old-project).
 
 ---
 
@@ -86,17 +86,16 @@ curl -sS http://127.0.0.1:8787/health && headroom doctor
 
 ---
 
-## Cases 2 and 3 (Dev Container)
+## Case 2 (VS Code Dev Container)
 
 ### What this will and will not overwrite
 
-**Safe:** `.claude/skills/`, `CLAUDE.md`, ignore files, Cursor rules, `image` / `features` / `mounts` / `remoteEnv` / `customizations`, other `containerEnv` keys, and `permissions.deny` (the `jq` below only adds keys).
+**Safe:** `.claude/skills/`, `CLAUDE.md`, ignore files, `image` / `features` / `mounts` / `remoteEnv` / `customizations`, other `containerEnv` keys, and `permissions.deny` (the `jq` below only adds keys).
 
 | File / field | Effect |
 | --- | --- |
 | `.devcontainer/devcontainer.json` → `postCreateCommand` | **Replaced** if you use the full `jq` below. If you already have extra install steps, append instead (see below). |
 | `.devcontainer/devcontainer.json` → `postStartCommand` | **Set.** Required so Headroom starts on every attach, not only on first create. |
-| `.cursor/mcp.json` | **Replaced** by a plain `cp`. If you already have other MCP servers, merge a `headroom` entry instead. |
 
 `postCreateCommand` runs **once** (container create). `postStartCommand` runs **every** start. If you only have `postCreate`, the proxy dies when the container is reused — Claude then fail-closes until you start it by hand.
 
@@ -112,23 +111,7 @@ cp "$T/.devcontainer/start-headroom.sh" "$P/.devcontainer/"
 cp "$T/.claude/statusline.sh" "$P/.claude/statusline.sh"
 ```
 
-3. Headroom MCP for Cursor Agent — **only if** you do not already have other MCP servers:
-
-```bash
-mkdir -p "$P/.cursor"
-cp "$T/.cursor/mcp.json" "$P/.cursor/mcp.json"
-```
-
-Otherwise add this under `mcpServers` in the existing file:
-
-```json
-"headroom": {
-  "command": "/usr/local/bin/headroom",
-  "args": ["mcp", "serve", "--proxy-url", "http://127.0.0.1:8787"]
-}
-```
-
-4. Patch `devcontainer.json`. **Case 3 (`both`):**
+3. Patch `devcontainer.json`:
 
 ```bash
 jq '
@@ -138,12 +121,10 @@ jq '
   .forwardPorts = ((.forwardPorts // []) + [8787] | unique) |
   .portsAttributes = (.portsAttributes // {}) |
   .portsAttributes["8787"] = {"label": "Headroom dashboard", "onAutoForward": "silent"} |
-  .postCreateCommand = "bash .devcontainer/setup-agent-tools.sh both" |
+  .postCreateCommand = "bash .devcontainer/setup-agent-tools.sh" |
   .postStartCommand = "bash .devcontainer/start-headroom.sh"
 ' "$P/.devcontainer/devcontainer.json" > /tmp/dc.json && mv /tmp/dc.json "$P/.devcontainer/devcontainer.json"
 ```
-
-**Case 2:** same command, but `setup-agent-tools.sh cursor` instead of `both`.
 
 Then confirm the start line is in the file (Mac, **before** you rebuild):
 
@@ -165,10 +146,10 @@ That field is what starts the proxy. Skipping it is why `curl 8787` fails after 
 To keep a custom create script and still install tools:
 
 ```bash
-bash your-existing-setup.sh && bash .devcontainer/setup-agent-tools.sh both
+bash your-existing-setup.sh && bash .devcontainer/setup-agent-tools.sh
 ```
 
-5. **Case 3 only** — status line + Headroom URL (skip on Case 2):
+4. Status line + Headroom URL:
 
 ```bash
 jq --arg cmd 'bash "${CLAUDE_PROJECT_DIR:-.}/.claude/statusline.sh"' '
@@ -178,9 +159,9 @@ jq --arg cmd 'bash "${CLAUDE_PROJECT_DIR:-.}/.claude/statusline.sh"' '
 ' "$P/.claude/settings.json" > /tmp/settings.json && mv /tmp/settings.json "$P/.claude/settings.json"
 ```
 
-6. `grep -qxF '.claude/.headroom_wrap_*' "$P/.gitignore" || echo '.claude/.headroom_wrap_*' >> "$P/.gitignore"`
-7. In Cursor: Command Palette → **Dev Containers: Rebuild Container** (first rebuild can take several minutes: Headroom/Python). Wait until the Dev Containers log finishes `Running postStartCommand` before the next step. If you only added `postStartCommand` and the scripts are already on disk, **Reload Window** / re-attach is enough for the next start; rebuild if `rtk` or `headroom` is missing.
-8. In the **container** terminal:
+5. `grep -qxF '.claude/.headroom_wrap_*' "$P/.gitignore" || echo '.claude/.headroom_wrap_*' >> "$P/.gitignore"`
+6. In VS Code: Command Palette → **Dev Containers: Rebuild Container** (first rebuild can take several minutes: Headroom/Python). Wait until the Dev Containers log finishes `Running postStartCommand` before the next step. If you only added `postStartCommand` and the scripts are already on disk, **Reload Window** / re-attach is enough for the next start; rebuild if `rtk` or `headroom` is missing.
+7. In the **container** terminal:
 
 ```bash
 rtk --version && rtk init --show
@@ -189,26 +170,47 @@ curl -sS http://127.0.0.1:8787/health
 headroom doctor
 ```
 
-`health` must show `"status":"healthy"`. `doctor` must show **proxy pass**. If the first `curl` failed, you just started the proxy by hand — `postStartCommand` is missing or did not run. Add it on the Mac (step 4) so the next rebuild does not need this.
+`health` must show `"status":"healthy"`. `doctor` must show **proxy pass**. If the first `curl` failed, you just started the proxy by hand — `postStartCommand` is missing or did not run. Add it on the Mac (step 3) so the next rebuild does not need this.
 
 ### Why
 
 1. Template vs old repo paths.
-2. `setup-agent-tools.sh` installs `jq` (status line), RTK, Headroom, and agent hooks. `start-headroom.sh` starts the proxy. `statusline.sh` is the CLI bar.
-3. Cursor Agent is not wrapped by the proxy; MCP is how it can compress / retrieve / stats.
-4. Create installs tools; **start** brings the proxy up every attach (and after create-time processes are reaped); port `8787` is the dashboard on the Mac.
-5. Claude Code reads `statusLine` and `ANTHROPIC_BASE_URL` from project settings.
-6. Ignore wrap files.
-7. Rebuild runs `postCreate` (binaries) then `postStart` (proxy). `rtk` / `headroom` on `PATH` is not the same as the proxy listening.
-8. RTK: Claude hook `[ok]`; add Cursor with `rtk init -g --agent cursor --auto-patch --no-trust-filters` if `rtk init --show` says Cursor hook not found. Headroom: `"status":"healthy"` and **proxy pass**. A failed first `curl` plus a passing second `curl` means you started it by hand — fix `postStartCommand` before the next rebuild. `shell env` unset in bash is expected — Claude is routed via `.claude/settings.json`. A `savings` warning before any real Claude request is normal.
+2. `setup-agent-tools.sh` installs `jq` (status line), RTK, Headroom, and the Claude hook. `start-headroom.sh` starts the proxy. `statusline.sh` is the CLI bar.
+3. Create installs tools; **start** brings the proxy up every attach (and after create-time processes are reaped); port `8787` is the dashboard on the Mac.
+4. Claude Code reads `statusLine` and `ANTHROPIC_BASE_URL` from project settings.
+5. Ignore wrap files.
+6. Rebuild runs `postCreate` (binaries) then `postStart` (proxy). `rtk` / `headroom` on `PATH` is not the same as the proxy listening.
+7. RTK: Claude hook `[ok]` (a missing Cursor hook is expected and fine). Headroom: `"status":"healthy"` and **proxy pass**. A failed first `curl` plus a passing second `curl` means you started it by hand — fix `postStartCommand` before the next rebuild. `shell env` unset in bash is expected — Claude is routed via `.claude/settings.json`. A `savings` warning before any real Claude request is normal.
+
+---
+
+## Remove Cursor files from an old project
+
+Every project made before Cursor support was removed (any mode: `claude`, `cursor`, or `both`) carries Cursor files the playbook no longer ships. Remove them on the Mac:
+
+```bash
+cd "$P"
+git rm -r --ignore-unmatch .cursor .cursorignore .devcontainer/devcontainer.cursor-only.json
+```
+
+Then check what the project's Dev Container runs:
+
+```bash
+jq -r .postCreateCommand "$P/.devcontainer/devcontainer.json"
+```
+
+- `... setup-agent-tools.sh both` or `... claude`: still works. You can drop the argument, but you don't have to.
+- `... setup-agent-tools.sh cursor`: this project was Cursor-only and has no Claude Code in its container. Copy the template's `.devcontainer/devcontainer.json` over it, then re-apply any customizations you had made. After that, do the Case 2 steps above.
+
+If you kept the old `setup-agent-tools.sh` in the project, it still registers a Cursor RTK hook on rebuild. That is harmless. Copy the template's version (Case 2, step 2) to stop it.
 
 ---
 
 ## Confirm they are working (not just installed)
 
-**Status line.** Open `claude` (Case 3 integrated terminal, or `claude-box`). You should see the bar. Blank bar usually means `jq` is missing: Case 1 re-run `./secure-agent-playbook.sh`; Case 3 rebuild so `postCreate` installs `jq`.
+**Status line.** Open `claude` (Case 2 integrated terminal, or `claude-box`). You should see the bar. Blank bar usually means `jq` is missing: Case 1 re-run `./secure-agent-playbook.sh`; Case 2 rebuild so `postCreate` installs `jq`.
 
-**RTK.** Totals only count Bash/Shell the **agent** ran (not you typing, not Read/Grep/Glob). After a few agent shell commands:
+**RTK.** Totals only count Bash commands **Claude** ran (not you typing, not Read/Grep/Glob). After a few agent shell commands:
 
 ```bash
 rtk gain
@@ -222,9 +224,7 @@ curl -sS http://127.0.0.1:8787/stats
 headroom doctor
 ```
 
-Cases 2 and 3: on the Mac open [http://127.0.0.1:8787/dashboard](http://127.0.0.1:8787/dashboard). Case 1: stay inside the session (`stats` / `doctor`).
-
-**Case 2:** Cursor-hosted models will not show proxy savings. Check `health` + RTK hooks; use Headroom MCP from Cursor.
+Case 2: on the Mac open [http://127.0.0.1:8787/dashboard](http://127.0.0.1:8787/dashboard). Case 1: stay inside the session (`stats` / `doctor`).
 
 If Claude cannot reach Anthropic: proxy is down. `bash .devcontainer/start-headroom.sh` (or a new `claude-box`). Logs: `~/.headroom/proxy.log`.
 
@@ -236,7 +236,7 @@ If Claude cannot reach Anthropic: proxy is down. `bash .devcontainer/start-headr
 | --- | --- |
 | **RTK** | Yes. Hooks persist. Nothing to start. |
 | **Status line** | Yes, whenever you use the Claude CLI and `jq` is installed. |
-| **Headroom** | Only if `postStartCommand` is `bash .devcontainer/start-headroom.sh` (Cases 2/3) or you use `claude-box` (Case 1 entrypoint). |
+| **Headroom** | Only if `postStartCommand` is `bash .devcontainer/start-headroom.sh` (Case 2) or you use `claude-box` (Case 1 entrypoint). |
 
 If you open a Dev Container and `curl -sS http://127.0.0.1:8787/health` fails, `postStart` is missing or did not run. Start it once with `bash .devcontainer/start-headroom.sh`, then add `postStartCommand` so you do not have to.
 

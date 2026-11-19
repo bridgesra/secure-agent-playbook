@@ -11,8 +11,22 @@ run_start() {
   env \
     HOME="${work}/home" \
     CURL_HEALTH="${CURL_HEALTH:-fail}" \
+    AGENT_TOOLS_EXTRA_PATH="" \
     PATH="${work}/bin:${work}/isolated" \
     bash "${START}"
+}
+
+# The proxy is launched with nohup ... &, so its stub may log after the script exits.
+wait_for_log() {
+  local log="$1"
+  local needle="$2"
+  local i=0
+  while [[ "${i}" -lt 50 ]]; do
+    grep -qF -- "${needle}" "${log}" 2>/dev/null && return 0
+    i=$((i + 1))
+    sleep 0.1
+  done
+  return 1
 }
 
 # --- headroom missing: skip, exit 0 ---
@@ -58,6 +72,7 @@ CURL_HEALTH=ok run_start "${work}" >/tmp/start-start.out 2>/tmp/start-start.err
 rc=$?
 set -e
 assert_exit 0 "${rc}" "start path exits 0"
+wait_for_log "${work}/stub.log" "headroom proxy --host 127.0.0.1 --port 8787" || true
 assert_contains "$(cat "${work}/stub.log")" "headroom proxy --host 127.0.0.1 --port 8787" \
   "start path launches proxy on 127.0.0.1:8787"
 rm -rf "${work}"

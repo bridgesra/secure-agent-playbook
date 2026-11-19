@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installer (fake HOME, stub docker) and new-project claude / cursor / both.
+# Installer (fake HOME, stub docker) and new-project scaffolding.
 set -u
 source "$(cd "$(dirname "$0")/.." && pwd)/helpers.sh"
 
@@ -64,57 +64,46 @@ rc=$?
 set -e
 assert_exit 1 "${rc}" "new-project without name exits 1"
 
-# claude: keep both-mode devcontainer
+# default: full Claude template, no Cursor files
 set +e
-( cd "${work}" && new-project proj-claude claude ) >/tmp/np-claude.out 2>&1
+( cd "${work}" && new-project proj ) >/tmp/np-default.out 2>&1
 rc=$?
 set -e
-assert_exit 0 "${rc}" "new-project claude exits 0"
-assert_file "${work}/proj-claude/.devcontainer/devcontainer.json" "claude project has devcontainer.json"
-assert_jq "${work}/proj-claude/.devcontainer/devcontainer.json" \
+assert_exit 0 "${rc}" "new-project exits 0"
+assert_file "${work}/proj/.devcontainer/devcontainer.json" "project has devcontainer.json"
+assert_jq "${work}/proj/.devcontainer/devcontainer.json" \
   '.features | has("ghcr.io/anthropics/devcontainer-features/claude-code:1.0")' \
-  "claude mode keeps both-mode recipe"
-assert_jq "${work}/proj-claude/.cursor/mcp.json" \
-  '.mcpServers.headroom.command == "/usr/local/bin/headroom"' \
-  "claude project copies Headroom MCP"
-assert_file "${work}/proj-claude/.claude/statusline.sh" "claude project copies statusline"
+  "project devcontainer has Claude Code feature"
+assert_jq "${work}/proj/.devcontainer/devcontainer.json" \
+  '.postCreateCommand == "bash .devcontainer/setup-agent-tools.sh"' \
+  "project devcontainer runs setup with no mode"
+assert_file "${work}/proj/.claude/statusline.sh" "project copies statusline"
+assert_file "${work}/proj/environment-notes.md" "project copies environment notes"
+for rel in ".cursor" ".cursorignore" ".devcontainer/devcontainer.cursor-only.json"; do
+  if [[ -e "${work}/proj/${rel}" ]]; then
+    fail "project still gets ${rel}"
+  else
+    pass "project has no ${rel}"
+  fi
+done
+assert_file_contains /tmp/np-default.out "claude-box" "new-project prints Case 1 next step"
+assert_file_contains /tmp/np-default.out "Reopen in Container" "new-project prints Case 2 next step"
 
-# cursor: swap recipe
+# legacy mode argument: ignored with a note, same template
 set +e
-( cd "${work}" && new-project proj-cursor cursor ) >/tmp/np-cursor.out 2>&1
+( cd "${work}" && new-project proj-legacy both ) >/tmp/np-legacy.out 2>&1
 rc=$?
 set -e
-assert_exit 0 "${rc}" "new-project cursor exits 0"
-assert_jq "${work}/proj-cursor/.devcontainer/devcontainer.json" \
-  '.postCreateCommand == "bash .devcontainer/setup-agent-tools.sh cursor"' \
-  "cursor mode swaps in cursor-only recipe"
-assert_jq "${work}/proj-cursor/.devcontainer/devcontainer.json" \
-  '.features | has("ghcr.io/anthropics/devcontainer-features/claude-code:1.0") | not' \
-  "cursor mode has no Claude Code feature"
-
-# both (explicit) and default
-set +e
-( cd "${work}" && new-project proj-both both ) >/tmp/np-both.out 2>&1
-rc=$?
-set -e
-assert_exit 0 "${rc}" "new-project both exits 0"
-assert_jq "${work}/proj-both/.devcontainer/devcontainer.json" \
-  '.postCreateCommand == "bash .devcontainer/setup-agent-tools.sh both"' \
-  "both mode keeps both recipe"
-
-set +e
-( cd "${work}" && new-project proj-default ) >/tmp/np-default.out 2>&1
-rc=$?
-set -e
-assert_exit 0 "${rc}" "new-project default exits 0"
-assert_jq "${work}/proj-default/.devcontainer/devcontainer.json" \
-  '.postCreateCommand == "bash .devcontainer/setup-agent-tools.sh both"' \
-  "new-project default mode is both"
+assert_exit 0 "${rc}" "new-project with legacy mode exits 0"
+assert_file_contains /tmp/np-legacy.out "no longer takes a mode" "legacy mode arg prints a note"
+assert_jq "${work}/proj-legacy/.devcontainer/devcontainer.json" \
+  '.postCreateCommand == "bash .devcontainer/setup-agent-tools.sh"' \
+  "legacy mode arg gets the same template"
 
 # missing template
 rm -rf "${HOME}/.config/secure-agent-template"
 set +e
-( cd "${work}" && new-project proj-missing claude ) >/tmp/np-missing.out 2>&1
+( cd "${work}" && new-project proj-missing ) >/tmp/np-missing.out 2>&1
 rc=$?
 set -e
 assert_exit 1 "${rc}" "new-project without template exits 1"

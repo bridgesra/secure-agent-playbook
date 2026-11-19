@@ -3,7 +3,12 @@
 # Safe to re-run (postCreate and postStart). Does not fail container startup.
 set -u
 
-export PATH="/usr/local/bin:${HOME}/.local/bin:${PATH}"
+# Append (not prepend) so an existing PATH entry wins. Tests set
+# AGENT_TOOLS_EXTRA_PATH="" so a real /usr/local/bin/headroom can't leak in.
+extra_path="${AGENT_TOOLS_EXTRA_PATH-/usr/local/bin:${HOME}/.local/bin}"
+if [[ -n "${extra_path}" ]]; then
+  export PATH="${PATH}:${extra_path}"
+fi
 export HEADROOM_BEACON="${HEADROOM_BEACON:-off}"
 export DO_NOT_TRACK="${DO_NOT_TRACK:-1}"
 

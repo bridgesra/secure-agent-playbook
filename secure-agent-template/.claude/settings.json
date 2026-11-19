@@ -8,7 +8,9 @@
       "Read(secrets/**)",
       "Read(node_modules/**)",
       "Read(dist/**)",
-      "Read(build/**)"
+      "Read(build/**)",
+      "Read(~/.git-credentials)",
+      "Read(~/.claude/.credentials.json)"
     ]
   },
   "statusLine": {

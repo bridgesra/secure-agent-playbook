@@ -1,6 +1,6 @@
 # Docker cheat sheet (for Secure Agent Playbook)
 
-A practical primer on Docker concepts used in this playbook — Case 1 (`claude-box`), Case 2/3 (Dev Containers), and OrbStack on macOS.
+A practical primer on Docker concepts used in this playbook — Case 1 (`claude-box`), Case 2 (VS Code Dev Container), and OrbStack on macOS.
 
 **One-sentence model:** An **image** is a recipe. A **container** is a running instance of that recipe. A **volume** is disk that outlives any single container.
 
@@ -13,7 +13,7 @@ An **image** is a read-only template: OS + tools + app, packaged as layers.
 | Image in this playbook | What it is |
 | ---------------------- | ---------- |
 | `claude-secure-sandbox:latest` | Node base + `claude` CLI (built by `secure-agent-playbook.sh`) |
-| `mcr.microsoft.com/devcontainers/base:ubuntu` | Base image for Case 2/3 dev containers |
+| `mcr.microsoft.com/devcontainers/base:ubuntu` | Base image for the Case 2 Dev Container |
 | `node:20-bookworm-slim` | Starting point for the Case 1 image build |
 
 Images are **built or pulled once**, then **reused**. They do not change while you work (unless you rebuild).
@@ -76,7 +76,7 @@ docker volume inspect claude-config-volume
 
 **Think:** a Docker-owned disk you plug into whichever container needs it.
 
-Case 3 uses a similar pattern: `claude-code-config-<id>` (per dev container / project).
+Case 2 uses a similar pattern: `claude-code-config-<id>` (per dev container / project).
 
 ---
 
@@ -152,13 +152,13 @@ Dev Containers pull images on first **Reopen in Container** (can take 5–15 min
 
 ---
 
-## Case 1 vs Dev Container (Case 2/3)
+## Case 1 vs Dev Container (Case 2)
 
 Both use Docker; the workflow differs.
 
-| | Case 1 `claude-box` | Case 2/3 Dev Container |
+| | Case 1 `claude-box` | Case 2 Dev Container |
 | -- | ------------------- | ---------------------- |
-| **Who starts it** | You, in Mac Terminal | Cursor / VS Code extension |
+| **Who starts it** | You, in Mac Terminal | VS Code Dev Containers extension |
 | **What runs** | `claude` (entrypoint) | Editor server + tools + terminals |
 | **How long it lives** | Until you `/exit` | Until you close the remote connection |
 | **Code** | Bind mount → `/workspace` | Bind mount project folder |
@@ -186,8 +186,8 @@ EACH claude-box SESSION
   /exit                  → container gone (--rm)
   volume remains         → next time still logged in
 
-CASE 3 DEV CONTAINER
-  Cursor builds/pulls image + features
+CASE 2 DEV CONTAINER
+  VS Code builds/pulls image + features
   creates per-project volume for ~/.claude
   container stays up while editor is attached
 ```
@@ -227,7 +227,7 @@ Mac host
 
 The container can touch **mounted** paths and **its own** filesystem. It cannot see unmounted host secrets — that is the isolation goal.
 
-Ignore files (`.cursorignore`, `.claudeignore`) and `permissions.deny` add project-level guardrails but are not perfect guarantees.
+`.claudeignore` and `permissions.deny` add project-level guardrails but are not perfect guarantees.
 
 ---
 
@@ -238,7 +238,7 @@ Ignore files (`.cursorignore`, `.claudeignore`) and `permissions.deny` add proje
 | `rm -rf ~/repos/test-project` | Removes project files on Mac |
 | `/exit` from `claude-box` | Container removed (`--rm`); volume kept |
 | `docker volume rm claude-config-volume` | Wipes Case 1 auth; re-login required |
-| `docker volume rm claude-code-config-<id>` | Wipes Case 3 auth for that project |
+| `docker volume rm claude-code-config-<id>` | Wipes Case 2 auth for that project |
 | `docker rmi claude-secure-sandbox:latest` | Removes Case 1 image (rebuild via setup script) |
 
 Deleting a project folder does **not** delete Docker volumes.
@@ -252,7 +252,7 @@ Deleting a project folder does **not** delete Docker volumes.
 3. **Volume** — persistent Docker storage (auth)
 4. **Bind mount** — your repo folder inside the container
 5. **`--rm`** — container auto-cleanup; **volume is separate**
-6. **Case 1 and Case 3 use different auth volumes**
+6. **Case 1 and Case 2 use different auth volumes**
 
 ---
 

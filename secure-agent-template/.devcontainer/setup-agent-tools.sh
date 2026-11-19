@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Install jq (Claude status line), RTK, Headroom, and agent hooks.
-# Usage: setup-agent-tools.sh <claude|cursor|both>
+# Install jq (Claude status line), RTK, Headroom, and the Claude Code hooks.
+# Usage: setup-agent-tools.sh
+# A legacy mode argument (claude|both) from older devcontainer.json files is accepted.
 set -euo pipefail
 
-MODE="${1:-both}"
-export PATH="/usr/local/bin:${HOME}/.local/bin:${PATH}"
+MODE="${1:-claude}"
+# Append (not prepend) so an existing PATH entry wins; installs still land in /usr/local/bin.
+export PATH="${PATH}:/usr/local/bin:${HOME}/.local/bin"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLAUDE_HOME="${CLAUDE_HOME:-/home/vscode/.claude}"
 RTK_INSTALLER="https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh"
@@ -57,13 +59,9 @@ prepare_claude_home() {
   chmod 700 /home/vscode/.claude
 }
 
-# Cursor hooks are global-only. Claude auto-rewrite also needs -g.
+# Claude auto-rewrite needs the global (-g) hook.
 init_claude() {
   rtk init -g --auto-patch --no-trust-filters
-}
-
-init_cursor() {
-  rtk init -g --agent cursor --auto-patch --no-trust-filters
 }
 
 # Route Claude Code (CLI + sidebar extension) through the local Headroom proxy.
@@ -88,33 +86,17 @@ start_headroom() {
 }
 
 case "${MODE}" in
-  claude)
+  claude|both)
     install_jq
     prepare_claude_home
     install_rtk
     install_headroom
     init_claude
-    route_claude
-    start_headroom
-    ;;
-  cursor)
-    install_rtk
-    install_headroom
-    init_cursor
-    start_headroom
-    ;;
-  both)
-    install_jq
-    prepare_claude_home
-    install_rtk
-    install_headroom
-    init_claude
-    init_cursor
     route_claude
     start_headroom
     ;;
   *)
-    echo "Usage: $0 <claude|cursor|both>" >&2
+    echo "Usage: $0 [claude]  (Cursor support was removed; got '${MODE}')" >&2
     exit 1
     ;;
 esac

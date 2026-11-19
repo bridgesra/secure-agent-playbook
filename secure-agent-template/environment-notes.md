@@ -2,13 +2,13 @@
 
 `.claude/statusline.sh` is wired from `.claude/settings.json`. In the **Claude Code terminal CLI** it shows running context, model, effort, and token usage.
 
-It needs `jq`. If the bar is blank, rebuild the Dev Container (Case 3) or re-run `./secure-agent-playbook.sh` on your Mac (Case 1). Cursor-only sessions do not show this bar.
+It needs `jq`. If the bar is blank, rebuild the Dev Container (Case 2) or re-run `./secure-agent-playbook.sh` on your Mac (Case 1).
 
 ## RTK (token-saving shell proxy)
 
 [RTK](https://github.com/rtk-ai/rtk) is installed in this container. You do not type `rtk` yourself.
 
-When Claude Code or Cursor Agent runs a **Bash/Shell** command, a hook may rewrite it (`git status` → `rtk git status`). RTK runs the real command, compresses the output, and the agent reads the short version. Built-in tools (Read, Grep, Glob) are not rewritten.
+When Claude Code runs a **Bash** command, a hook may rewrite it (`git status` → `rtk git status`). RTK runs the real command, compresses the output, and the agent reads the short version. Built-in tools (Read, Grep, Glob) are not rewritten.
 
 This cuts **bash output** the model has to read. It is not the same as cutting your bill by that percentage.
 
@@ -20,7 +20,7 @@ rtk gain --graph  # with a simple chart
 rtk init --show   # confirm the hook is installed
 ```
 
-If `rtk` is missing, rebuild the Dev Container (Cases 2 & 3) or re-run `./secure-agent-playbook.sh` on your Mac (Case 1).
+If `rtk` is missing, rebuild the Dev Container (Case 2) or re-run `./secure-agent-playbook.sh` on your Mac (Case 1).
 
 ## Headroom (token compression proxy)
 
@@ -32,8 +32,7 @@ If `rtk` is missing, rebuild the Dev Container (Cases 2 & 3) or re-run `./secure
 
 ### Daily use
 
-- **Claude Code** (`claude` in the terminal, or the sidebar extension): already routed. Type `claude` as usual.
-- **Cursor Agent** (Composer / chat, Cursor-hosted models): not routed through the proxy. Cursor can call Headroom MCP tools (`headroom_compress`, `headroom_retrieve`, `headroom_stats`). Do **not** enable Cursor's Override OpenAI Base URL for subscription models — that breaks them.
+Claude Code (`claude` in the terminal, or the VS Code sidebar extension) is already routed through the proxy. Type `claude` as usual.
 
 If the proxy is down, Claude **fail-closes** (it will not talk to Anthropic directly). Restart it, then try Claude again:
 
@@ -41,11 +40,11 @@ If the proxy is down, Claude **fail-closes** (it will not talk to Anthropic dire
 bash .devcontainer/start-headroom.sh
 ```
 
-Case 1 (`claude-box`) starts the proxy in the container entrypoint. Cases 2 and 3 start it when the Dev Container starts.
+Case 1 (`claude-box`) starts the proxy in the container entrypoint. Case 2 starts it when the Dev Container starts.
 
 ### Check that it is working
 
-Inside the container (Cursor integrated terminal, or inside `claude-box`):
+Inside the container (VS Code integrated terminal, or inside `claude-box`):
 
 ```bash
 curl -sS http://127.0.0.1:8787/health
@@ -58,7 +57,7 @@ headroom doctor
 
 After Claude has made at least one request through the proxy:
 
-**Cases 2 and 3** (Dev Container): port `8787` is forwarded to your Mac. In a browser on the Mac open:
+**Case 2** (Dev Container): port `8787` is forwarded to your Mac. In a browser on the Mac open:
 
 [http://127.0.0.1:8787/dashboard](http://127.0.0.1:8787/dashboard)
 
@@ -74,18 +73,38 @@ headroom dashboard --no-open
 
 ### If Headroom is missing
 
-Rebuild the Dev Container (Cases 2 & 3) or re-run `./secure-agent-playbook.sh` on your Mac (Case 1). Then `bash .devcontainer/start-headroom.sh`. Logs: `~/.headroom/proxy.log`.
+Rebuild the Dev Container (Case 2) or re-run `./secure-agent-playbook.sh` on your Mac (Case 1). Then `bash .devcontainer/start-headroom.sh`. Logs: `~/.headroom/proxy.log`.
 
-## Change color of only this folder's workspace
+## Give this project its own VS Code colors
 
-Use Cmd+, to open Settings, then:
+Workspace settings live in this folder's `.vscode/settings.json`. They apply only to this project, and they stick: every time you open the folder (on the Mac or in the Dev Container) they come back. Other VS Code windows keep their own theme.
 
-- Select the Workspace tab.
-- Search for Color Theme.
-- Set Workbench › Color Theme to your choice
+**Whole theme.** Cmd+, → **Workspace** tab (not User) → search `Color Theme` → pick one.
 
-## Store git credentials
+**Just the title bar** (easier to tell windows apart while keeping your usual theme). Command Palette → `Preferences: Open Workspace Settings (JSON)` and add:
 
-- Run `git config --global credential.helper store`
-- On first push/pull it will prompt for access credentials; copy-paste from 1Password
-- Then it will be stored in `.git-credentials`, and not needed again.
+```json
+{
+  "workbench.colorCustomizations": {
+    "titleBar.activeBackground": "#5a2d82",
+    "titleBar.activeForeground": "#ffffff",
+    "titleBar.inactiveBackground": "#3d1f59"
+  }
+}
+```
+
+On macOS the title bar must be VS Code's own (`"window.titleBarStyle": "custom"`, the default in current versions) for these colors to show.
+
+`.vscode/settings.json` is not gitignored. Commit it if you want collaborators to see the same colors. Otherwise add `.vscode/settings.json` to `.gitignore`.
+
+## Remember git credentials
+
+**Case 2 (VS Code Dev Container): use your Mac's Keychain.** The Dev Containers extension forwards your Mac's git credential helper into the container. You don't store anything in the container.
+
+1. On the Mac, once: `git config --global credential.helper` should print `osxkeychain`. If it prints nothing, run `git config --global credential.helper osxkeychain`.
+2. Do one `git pull` or `git push` from Mac Terminal in any HTTPS repo. Paste your token (from 1Password) when asked. Keychain saves it.
+3. Inside the Dev Container, `git push` now works without a prompt.
+
+**Case 1 (`claude-box`): run git from Mac Terminal**, outside the container. `claude-box` has no credential helper and no SSH keys, on purpose.
+
+**Avoid `git config --global credential.helper store` inside a container.** It writes the token in plain text to `~/.git-credentials`, where Claude can read it. In a Dev Container that file is also lost on every rebuild. In `claude-box` it would sit on the shared auth volume that every project uses.

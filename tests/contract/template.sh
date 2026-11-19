@@ -4,18 +4,14 @@ set -u
 source "$(cd "$(dirname "$0")/.." && pwd)/helpers.sh"
 
 required_files=(
-  ".cursorignore"
-  ".cursor/mcp.json"
-  ".cursor/rules/global-standards.mdc"
   ".claudeignore"
   ".claude/settings.json"
   ".claude/statusline.sh"
   ".claude/skills/folder-explore/SKILL.md"
   "CLAUDE.md"
-  "notes.md"
+  "environment-notes.md"
   ".gitignore"
   ".devcontainer/devcontainer.json"
-  ".devcontainer/devcontainer.cursor-only.json"
   ".devcontainer/setup-agent-tools.sh"
   ".devcontainer/start-headroom.sh"
 )
@@ -25,11 +21,18 @@ for rel in "${required_files[@]}"; do
 done
 
 json_files=(
-  "${TEMPLATE}/.cursor/mcp.json"
   "${TEMPLATE}/.claude/settings.json"
   "${TEMPLATE}/.devcontainer/devcontainer.json"
-  "${TEMPLATE}/.devcontainer/devcontainer.cursor-only.json"
 )
+
+# Cursor support was removed; the template must not ship Cursor files again.
+for rel in ".cursor" ".cursorignore" ".devcontainer/devcontainer.cursor-only.json"; do
+  if [[ -e "${TEMPLATE}/${rel}" ]]; then
+    fail "template still ships ${rel}"
+  else
+    pass "template has no ${rel}"
+  fi
+done
 
 for jf in "${json_files[@]}"; do
   assert_json "${jf}"

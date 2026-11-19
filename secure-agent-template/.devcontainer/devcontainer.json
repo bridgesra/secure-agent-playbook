@@ -26,7 +26,7 @@
       "onAutoForward": "silent"
     }
   },
-  "postCreateCommand": "bash .devcontainer/setup-agent-tools.sh both",
+  "postCreateCommand": "bash .devcontainer/setup-agent-tools.sh",
   "postStartCommand": "bash .devcontainer/start-headroom.sh",
   "customizations": {
     "vscode": {

@@ -101,15 +101,18 @@ fi
 cat >> "${ZSHRC}" <<'ZSH'
 
 # >>> secure-agent-playbook >>>
-# Scaffold a new project with Cursor + Claude ignore/rules files.
-# Usage: new-project my-app [claude|cursor|both]
+# Scaffold a new project from the secure-agent template (Claude Code + RTK + Headroom).
+# Usage: new-project my-app
 new-project() {
   local name="${1:-}"
-  local mode="${2:-both}"
 
   if [[ -z "${name}" ]]; then
-    echo "Usage: new-project <name> [claude|cursor|both]"
+    echo "Usage: new-project <name>"
     return 1
+  fi
+
+  if [[ -n "${2:-}" ]]; then
+    echo "Note: new-project no longer takes a mode; ignoring '${2}'."
   fi
 
   local dest
@@ -124,35 +127,14 @@ new-project() {
   mkdir -p "${dest}"
   cp -R "${template}/." "${dest}/"
 
-  if [[ "${mode}" == "cursor" ]]; then
-    cp "${dest}/.devcontainer/devcontainer.cursor-only.json" "${dest}/.devcontainer/devcontainer.json"
-  fi
-
   cd "${dest}" || return 1
   echo "Created ${dest}"
   echo ""
-  echo "Before your first git pull/push, run (inside the container if using cursor/both/claude-box):"
-  echo "  git config --global credential.helper store"
-  echo "  Credentials are saved after the first successful auth."
-
-  case "${mode}" in
-    claude)
-      echo "Next: claude-box"
-      ;;
-    cursor)
-      if command -v cursor >/dev/null 2>&1; then
-        cursor .
-      else
-        echo "Next: cursor .  then Reopen in Container"
-      fi
-      ;;
-    both)
-      if command -v cursor >/dev/null 2>&1; then
-        cursor .
-      fi
-      echo "Next: Reopen in Container, then run 'claude' in Cursor's integrated terminal"
-      ;;
-  esac
+  echo "Next, pick one:"
+  echo "  Case 1 (terminal only):  claude-box"
+  echo "  Case 2 (VS Code):        code .  then 'Dev Containers: Reopen in Container', then run 'claude'"
+  echo ""
+  echo "Setup notes (git credentials, per-project VS Code colors, RTK, Headroom): environment-notes.md"
 }
 
 # Run Claude Code in an isolated container (Case 1).
@@ -196,7 +178,5 @@ echo ""
 echo "Optional: add auth to ~/.zshrc"
 echo "  export ANTHROPIC_API_KEY=sk-ant-..."
 echo ""
-echo "Create projects:"
-echo "  new-project my-app claude   # Claude Code only"
-echo "  new-project my-app cursor   # Cursor only"
-echo "  new-project my-app both     # Cursor + Claude (default)"
+echo "Create a project:"
+echo "  new-project my-app"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# setup-agent-tools.sh modes: claude / cursor / both / invalid.
+# setup-agent-tools.sh: default (no arg), legacy claude/both args, removed cursor mode, invalid arg.
 set -u
 source "$(cd "$(dirname "$0")/.." && pwd)/helpers.sh"
 
@@ -25,98 +25,73 @@ make_mode_env() {
 
 run_setup() {
   local work="$1"
-  local mode="$2"
+  shift
   env \
     HOME="${work}/home" \
     CLAUDE_HOME="${work}/claude" \
     CURL_HEALTH=ok \
     PATH="${work}/home/.local/bin:${work}/isolated" \
-    bash "${SETUP}" "${mode}"
+    bash "${SETUP}" "$@"
 }
 
-# --- cursor: RTK cursor hook, Headroom start, no Claude routing / jq install ---
-work="$(mktemp -d)"
-make_mode_env "${work}" 0
-set +e
-run_setup "${work}" cursor >/tmp/setup-cursor.out 2>&1
-rc=$?
-set -e
-assert_exit 0 "${rc}" "cursor mode exits 0"
-log="$(cat "${work}/stub.log")"
-assert_contains "${log}" "rtk init -g --agent cursor --auto-patch --no-trust-filters" \
-  "cursor registers RTK for Cursor"
-assert_not_contains "${log}" "rtk init -g --auto-patch --no-trust-filters" \
-  "cursor does not register Claude-only RTK init line without --agent"
-# The cursor line also contains "--auto-patch"; the Claude-only invocation is exactly
-# "rtk init -g --auto-patch --no-trust-filters" with no --agent. Confirm via grep -x style:
-if grep -E '^rtk init -g --auto-patch --no-trust-filters$' "${work}/stub.log" >/dev/null; then
-  fail "cursor ran Claude RTK init"
-else
-  pass "cursor did not run Claude RTK init"
-fi
-assert_not_contains "${log}" "apt-get" "cursor does not install jq via apt-get"
-if [[ -f "${work}/claude/settings.json" ]]; then
-  fail "cursor wrote Claude settings (route_claude)"
-else
-  pass "cursor did not call route_claude"
-fi
-assert_contains "${log}" "curl" "cursor starts Headroom health check"
-rm -rf "${work}"
+# Full Claude setup: Claude RTK hook, Headroom routing, no Cursor hook.
+check_claude_setup() {
+  local work="$1"
+  local label="$2"
+  local log
+  log="$(cat "${work}/stub.log")"
+  if grep -E '^rtk init -g --auto-patch --no-trust-filters$' "${work}/stub.log" >/dev/null; then
+    pass "${label} registers RTK for Claude"
+  else
+    fail "${label} missing Claude RTK init"
+  fi
+  assert_not_contains "${log}" "--agent cursor" "${label} does not register Cursor RTK"
+  assert_file "${work}/claude/settings.json" "${label} route_claude wrote settings"
+  assert_jq "${work}/claude/settings.json" \
+    '.env.ANTHROPIC_BASE_URL == "http://127.0.0.1:8787"' \
+    "${label} settings route through Headroom"
+  assert_contains "${log}" "curl" "${label} starts Headroom health check"
+}
 
-# --- claude: jq path, Claude home, Claude RTK, route_claude, no cursor agent ---
+# --- default: no argument ---
 work="$(mktemp -d)"
 make_mode_env "${work}" 1
 set +e
-run_setup "${work}" claude >/tmp/setup-claude.out 2>&1
+run_setup "${work}" >/tmp/setup-default.out 2>&1
 rc=$?
 set -e
-assert_exit 0 "${rc}" "claude mode exits 0"
-log="$(cat "${work}/stub.log")"
-if grep -E '^rtk init -g --auto-patch --no-trust-filters$' "${work}/stub.log" >/dev/null; then
-  pass "claude registers RTK for Claude"
-else
-  fail "claude missing Claude RTK init"
-fi
-assert_not_contains "${log}" "--agent cursor" "claude does not register Cursor RTK"
-assert_file "${work}/claude/settings.json" "claude route_claude wrote settings"
-assert_jq "${work}/claude/settings.json" \
-  '.env.ANTHROPIC_BASE_URL == "http://127.0.0.1:8787"' \
-  "claude settings route through Headroom"
-if [[ -d "${work}/claude" ]] && [[ -f "${work}/claude/settings.json" ]]; then
-  pass "claude prepared CLAUDE_HOME"
-fi
+assert_exit 0 "${rc}" "no-arg setup exits 0"
+check_claude_setup "${work}" "no-arg"
 rm -rf "${work}"
 
-# --- both: union ---
-work="$(mktemp -d)"
-make_mode_env "${work}" 1
-set +e
-run_setup "${work}" both >/tmp/setup-both.out 2>&1
-rc=$?
-set -e
-assert_exit 0 "${rc}" "both mode exits 0"
-log="$(cat "${work}/stub.log")"
-if grep -E '^rtk init -g --auto-patch --no-trust-filters$' "${work}/stub.log" >/dev/null; then
-  pass "both registers RTK for Claude"
-else
-  fail "both missing Claude RTK init"
-fi
-assert_contains "${log}" "rtk init -g --agent cursor --auto-patch --no-trust-filters" \
-  "both registers RTK for Cursor"
-assert_file "${work}/claude/settings.json" "both route_claude wrote settings"
-assert_jq "${work}/claude/settings.json" \
-  '.env.ANTHROPIC_BASE_URL == "http://127.0.0.1:8787"' \
-  "both settings route through Headroom"
-rm -rf "${work}"
+# --- legacy args from older devcontainer.json files ---
+for legacy in claude both; do
+  work="$(mktemp -d)"
+  make_mode_env "${work}" 1
+  set +e
+  run_setup "${work}" "${legacy}" >/tmp/setup-${legacy}.out 2>&1
+  rc=$?
+  set -e
+  assert_exit 0 "${rc}" "legacy ${legacy} arg exits 0"
+  check_claude_setup "${work}" "legacy ${legacy}"
+  rm -rf "${work}"
+done
 
-# --- invalid mode ---
-work="$(mktemp -d)"
-make_mode_env "${work}" 1
-set +e
-run_setup "${work}" nope >/tmp/setup-nope.out 2>&1
-rc=$?
-set -e
-assert_exit 1 "${rc}" "invalid mode exits 1"
-rm -rf "${work}"
+# --- removed cursor mode and invalid args are rejected ---
+for bad in cursor nope; do
+  work="$(mktemp -d)"
+  make_mode_env "${work}" 1
+  set +e
+  run_setup "${work}" "${bad}" >/tmp/setup-${bad}.out 2>&1
+  rc=$?
+  set -e
+  assert_exit 1 "${rc}" "${bad} arg exits 1"
+  if [[ -f "${work}/claude/settings.json" ]]; then
+    fail "${bad} arg still wrote Claude settings"
+  else
+    pass "${bad} arg made no changes"
+  fi
+  rm -rf "${work}"
+done
 
 finish
